@@ -93,8 +93,7 @@ export class AuthService {
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const identity = await this.repo.findIdentityByEmail(dto.email, 'local');
-    // Return success even if email not found — prevents user enumeration
-    if (!identity) return;
+    if (!identity) return { message: 'OTP has been sent to your email if it is registered' };
 
     const otp = this.generateOtp();
     const codeHash = this.hashOtp(otp);
@@ -109,7 +108,7 @@ export class AuthService {
 
     const devReturnOtp = this.config.get<string>('DEV_RETURN_OTP');
     if (devReturnOtp === 'true') {
-      return { message: 'OTP sent', otp };
+      return { message: 'OTP has been sent to your email if it is registered', otp };
     }
 
     try {
@@ -118,7 +117,7 @@ export class AuthService {
       throw new BadRequestException('Failed to send OTP email — please try again');
     }
 
-    return { message: 'OTP sent' };
+    return { message: 'OTP has been sent to your email if it is registered' };
   }
 
   // ── Verify OTP ─────────────────────────────────────────────────────────
