@@ -86,7 +86,7 @@ export class AuthService {
   async logout(userId: string, refreshToken: string) {
     const tokenHash = this.hashToken(refreshToken);
     await this.repo.deleteAuthToken(userId, tokenHash);
-    return { message: 'Logged out successfully' };
+    return { message: 'You have been logged out successfully.' };
   }
 
   // ── Forgot Password ────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ export class AuthService {
 
     const devReturnOtp = this.config.get<string>('DEV_RETURN_OTP');
     if (devReturnOtp === 'true') {
-      return { message: 'OTP has been sent to your email', otp };
+      return { message: 'A verification code has been sent to your email.', otp };
     }
 
     try {
@@ -117,7 +117,7 @@ export class AuthService {
       throw new BadRequestException('Failed to send OTP email — please try again');
     }
 
-    return { message: 'OTP has been sent to your email' };
+    return { message: 'A verification code has been sent to your email.' };
   }
 
   // ── Verify OTP ─────────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ export class AuthService {
     const codeHash = this.hashOtp(otpCode);
     if (codeHash !== otp.code_hash) throw new BadRequestException('Invalid OTP');
 
-    return { message: 'OTP is valid, you can now reset your password' };
+    return { message: 'Code verified. Please enter your new password.' };
   }
 
   // ── Reset Password ─────────────────────────────────────────────────────
@@ -156,7 +156,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.new_password, 12);
     await this.repo.updatePasswordHash(identity.user_id, passwordHash);
 
-    return { message: 'Password reset successfully' };
+    return { message: 'Your password has been reset. You can now log in.' };
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
