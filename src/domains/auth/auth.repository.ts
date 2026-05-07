@@ -24,6 +24,30 @@ export class AuthRepository {
     return this.db.knex('users').where({ username }).first();
   }
 
+  async createLocalUser(data: {
+    username: string;
+    display_name: string;
+    email: string;
+    password_hash: string;
+  }) {
+    return this.db.knex.transaction(async (trx) => {
+      const [user] = await trx('users')
+        .insert({ username: data.username, display_name: data.display_name })
+        .returning('*');
+
+      await trx('user_identities').insert({
+        user_id: user.id,
+        provider: 'local',
+        email: data.email,
+        password_hash: data.password_hash,
+      });
+
+      await trx('user_settings').insert({ user_id: user.id });
+
+      return user;
+    });
+  }
+
   // ── User Identities ────────────────────────────────────────────────────
 
   async createIdentity(data: {

@@ -31,19 +31,13 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const username = await this.generateUsername(dto.email);
-    const user = await this.repo.createUser({
+
+    const user = await this.repo.createLocalUser({
       username,
       display_name: dto.display_name,
-    });
-
-    await this.repo.createIdentity({
-      user_id: user.id,
-      provider: 'local',
       email: dto.email,
       password_hash: passwordHash,
     });
-
-    await this.repo.createUserSettings(user.id);
 
     return this.issueTokens(user.id, deviceInfo);
   }
@@ -92,14 +86,14 @@ export class AuthService {
   async logout(userId: string, refreshToken: string) {
     const tokenHash = this.hashToken(refreshToken);
     await this.repo.deleteAuthToken(userId, tokenHash);
+    return { message: 'You have been logged out successfully.' };
   }
 
   // ── Forgot Password ────────────────────────────────────────────────────
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const identity = await this.repo.findIdentityByEmail(dto.email, 'local');
-    // Return success even if email not found — prevents user enumeration
-    if (!identity) return;
+    if (!identity) return { message: 'OTP has been sent to your email' };
 
     const otp = this.generateOtp();
     const codeHash = this.hashOtp(otp);
@@ -112,14 +106,33 @@ export class AuthService {
       expires_at: expiresAt,
     });
 
-    // Dev-only escape hatch: when SMTP isn't reachable (local testing),
-    // return the OTP directly so you can test `reset-password`.
     const devReturnOtp = this.config.get<string>('DEV_RETURN_OTP');
     if (devReturnOtp === 'true') {
-      return { otp };
+      return { message: 'A verification code has been sent to your email.', otp };
     }
 
-    await this.sendOtpEmail(dto.email, otp);
+    try {
+      await this.sendOtpEmail(dto.email, otp);
+    } catch {
+      throw new BadRequestException('Failed to send OTP email — please try again');
+    }
+
+    return { message: 'A verification code has been sent to your email.' };
+  }
+
+  // ── Verify OTP ─────────────────────────────────────────────────────────
+
+  async verifyOtp(email: string, otpCode: string) {
+    const identity = await this.repo.findIdentityByEmail(email, 'local');
+    if (!identity) throw new BadRequestException('Invalid request');
+
+    const otp = await this.repo.findActiveOtp(identity.user_id, 'reset_password');
+    if (!otp) throw new BadRequestException('OTP expired or not found');
+
+    const codeHash = this.hashOtp(otpCode);
+    if (codeHash !== otp.code_hash) throw new BadRequestException('Invalid OTP');
+
+    return { message: 'Code verified. Please enter your new password.' };
   }
 
   // ── Reset Password ─────────────────────────────────────────────────────
@@ -142,6 +155,8 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.new_password, 12);
     await this.repo.updatePasswordHash(identity.user_id, passwordHash);
+
+    return { message: 'Your password has been reset. You can now log in.' };
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
