@@ -79,8 +79,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimitGuard)
   @RateLimit(5, 15 * 60)
-  @ApiOperation({ summary: 'Send a 6-digit OTP to the email for password reset' })
-  @ApiResponse({ status: 200, description: 'OTP sent (response is identical whether email exists or not)' })
+  @ApiOperation({ summary: 'Send or resend a 6-digit OTP to the email for password reset' })
+  @ApiResponse({ status: 200, description: 'OTP sent — also use this to resend. Any previous unused OTP for this email is invalidated.' })
   @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
