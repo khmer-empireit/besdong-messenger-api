@@ -41,8 +41,11 @@ export class RateLimitGuard implements CanActivate {
       return true;
     } catch (error) {
       if (error instanceof RateLimiterRes) {
+        const retryAfter = Math.ceil(error.msBeforeNext / 1000);
+        const minutes = Math.ceil(retryAfter / 60);
+        const waitMsg = retryAfter < 60 ? `${retryAfter} seconds` : `${minutes} minutes`;
         throw new HttpException(
-          'Too many requests — please try again later',
+          `Too many requests — please try again in ${waitMsg}`,
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }

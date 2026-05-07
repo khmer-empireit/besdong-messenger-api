@@ -44,9 +44,12 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(10, 15 * 60)
   @ApiOperation({ summary: 'Issue a new access token using a refresh token' })
   @ApiResponse({ status: 200, description: 'Returns a new access token' })
   @ApiResponse({ status: 401, description: 'Invalid or revoked refresh token' })
+  @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto.refresh_token);
   }
