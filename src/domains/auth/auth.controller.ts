@@ -1,18 +1,5 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -20,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { OAuthDto } from './dto/oauth.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
@@ -57,9 +45,12 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(10, 15 * 60)
   @ApiOperation({ summary: 'Issue a new access token using a refresh token' })
   @ApiResponse({ status: 200, description: 'Returns a new access token' })
   @ApiResponse({ status: 401, description: 'Invalid or revoked refresh token' })
+  @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto.refresh_token);
   }
@@ -108,5 +99,17 @@ export class AuthController {
   @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  @Post('oauth')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(10, 15 * 60)
+  @ApiOperation({ summary: 'Social login — Google, Facebook, or Apple' })
+  @ApiResponse({ status: 201, description: 'Returns access and refresh tokens' })
+  @ApiResponse({ status: 400, description: 'Validation error or unsupported provider' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired provider token' })
+  @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
+  oauthLogin(@Body() dto: OAuthDto, @Req() req: Request) {
+    return this.authService.oauthLogin(dto, req.headers['user-agent'] as string);
   }
 }

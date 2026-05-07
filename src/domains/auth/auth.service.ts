@@ -9,11 +9,14 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
+import { OAuth2Client } from 'google-auth-library';
+import * as appleSignin from 'apple-signin-auth';
 import { AuthRepository } from './auth.repository';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { OAuthDto } from './dto/oauth.dto';
 
 @Injectable()
 export class AuthService {
@@ -141,15 +144,11 @@ export class AuthService {
     const identity = await this.repo.findIdentityByEmail(dto.email, 'local');
     if (!identity) throw new BadRequestException('Invalid request');
 
-    const otp = await this.repo.findActiveOtp(
-      identity.user_id,
-      'reset_password',
-    );
+    const otp = await this.repo.findActiveOtp(identity.user_id, 'reset_password');
     if (!otp) throw new BadRequestException('OTP expired or not found');
 
     const codeHash = this.hashOtp(dto.otp_code);
-    if (codeHash !== otp.code_hash)
-      throw new BadRequestException('Invalid OTP');
+    if (codeHash !== otp.code_hash) throw new BadRequestException('Invalid OTP');
 
     await this.repo.markOtpUsed(otp.id);
 
@@ -157,6 +156,35 @@ export class AuthService {
     await this.repo.updatePasswordHash(identity.user_id, passwordHash);
 
     return { message: 'Your password has been reset. You can now log in.' };
+  }
+
+  // ── OAuth ──────────────────────────────────────────────────────────────
+
+  async oauthLogin(dto: OAuthDto, deviceInfo?: string) {
+    const profile = await this.verifyProviderToken(dto.provider, dto.token);
+
+    const byProviderId = await this.repo.findIdentityByProviderId(
+      dto.provider,
+      profile.provider_user_id,
+    );
+    if (byProviderId) return this.issueTokens(byProviderId.user_id, deviceInfo);
+
+    const byEmail = await this.repo.findIdentityByEmail(profile.email, dto.provider);
+    if (byEmail) {
+      await this.repo.updateProviderUserId(byEmail.id, profile.provider_user_id);
+      return this.issueTokens(byEmail.user_id, deviceInfo);
+    }
+
+    const username = await this.generateUsername(profile.email);
+    const user = await this.repo.createOAuthUser({
+      username,
+      display_name: profile.display_name ?? username,
+      provider: dto.provider,
+      provider_user_id: profile.provider_user_id,
+      email: profile.email,
+    });
+
+    return this.issueTokens(user.id, deviceInfo);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -221,6 +249,75 @@ export class AuthService {
 
   private generateOtp(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  private async verifyProviderToken(
+    provider: string,
+    token: string,
+  ): Promise<{ provider_user_id: string; email: string; display_name?: string }> {
+    switch (provider) {
+      case 'google':
+        return this.verifyGoogleToken(token);
+      case 'facebook':
+        return this.verifyFacebookToken(token);
+      case 'apple':
+        return this.verifyAppleToken(token);
+      default:
+        throw new UnauthorizedException('Unsupported provider');
+    }
+  }
+
+  private async verifyGoogleToken(token: string) {
+    try {
+      const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
+      const client = new OAuth2Client(clientId);
+      const ticket = await client.verifyIdToken({ idToken: token, audience: clientId });
+      const payload = ticket.getPayload();
+      if (!payload?.sub || !payload.email) throw new Error('Missing fields');
+      return { provider_user_id: payload.sub, email: payload.email, display_name: payload.name };
+    } catch {
+      throw new UnauthorizedException('Invalid Google token');
+    }
+  }
+
+  private async verifyFacebookToken(token: string) {
+    try {
+      const [meRes, appRes] = await Promise.all([
+        fetch(`https://graph.facebook.com/me?fields=id,email,name&access_token=${token}`),
+        fetch(`https://graph.facebook.com/app?access_token=${token}`),
+      ]);
+      const me = (await meRes.json()) as any;
+      const app = (await appRes.json()) as any;
+      if (me.error || app.error) throw new Error('Facebook API error');
+      const expectedAppId = this.config.get<string>('FACEBOOK_APP_ID');
+      if (app.id !== expectedAppId) throw new Error('Token issued for a different app');
+      if (!me.email) throw new Error('Email permission not granted');
+      return {
+        provider_user_id: me.id as string,
+        email: me.email as string,
+        display_name: me.name as string,
+      };
+    } catch {
+      throw new UnauthorizedException('Invalid Facebook token');
+    }
+  }
+
+  private async verifyAppleToken(token: string) {
+    try {
+      const clientId = this.config.get<string>('APPLE_CLIENT_ID');
+      const payload = await (appleSignin as any).verifyIdToken(token, {
+        audience: clientId,
+        ignoreExpiration: false,
+      });
+      if (!payload?.sub || !payload.email) throw new Error('Missing fields');
+      return {
+        provider_user_id: payload.sub as string,
+        email: payload.email as string,
+        display_name: undefined,
+      };
+    } catch {
+      throw new UnauthorizedException('Invalid Apple token');
+    }
   }
 
   private async sendOtpEmail(email: string, otp: string) {
