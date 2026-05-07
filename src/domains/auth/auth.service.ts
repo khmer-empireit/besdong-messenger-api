@@ -122,6 +122,19 @@ export class AuthService {
     await this.sendOtpEmail(dto.email, otp);
   }
 
+  // ── Verify OTP ─────────────────────────────────────────────────────────
+
+  async verifyOtp(email: string, otpCode: string) {
+    const identity = await this.repo.findIdentityByEmail(email, 'local');
+    if (!identity) throw new BadRequestException('Invalid request');
+
+    const otp = await this.repo.findActiveOtp(identity.user_id, 'reset_password');
+    if (!otp) throw new BadRequestException('OTP expired or not found');
+
+    const codeHash = this.hashOtp(otpCode);
+    if (codeHash !== otp.code_hash) throw new BadRequestException('Invalid OTP');
+  }
+
   // ── Reset Password ─────────────────────────────────────────────────────
 
   async resetPassword(dto: ResetPasswordDto) {
