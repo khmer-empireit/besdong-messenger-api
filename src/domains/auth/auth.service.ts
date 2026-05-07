@@ -31,19 +31,13 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const username = await this.generateUsername(dto.email);
-    const user = await this.repo.createUser({
+
+    const user = await this.repo.createLocalUser({
       username,
       display_name: dto.display_name,
-    });
-
-    await this.repo.createIdentity({
-      user_id: user.id,
-      provider: 'local',
       email: dto.email,
       password_hash: passwordHash,
     });
-
-    await this.repo.createUserSettings(user.id);
 
     return this.issueTokens(user.id, deviceInfo);
   }
@@ -92,6 +86,7 @@ export class AuthService {
   async logout(userId: string, refreshToken: string) {
     const tokenHash = this.hashToken(refreshToken);
     await this.repo.deleteAuthToken(userId, tokenHash);
+    return { message: 'Logged out successfully' };
   }
 
   // ── Forgot Password ────────────────────────────────────────────────────
@@ -112,14 +107,18 @@ export class AuthService {
       expires_at: expiresAt,
     });
 
-    // Dev-only escape hatch: when SMTP isn't reachable (local testing),
-    // return the OTP directly so you can test `reset-password`.
     const devReturnOtp = this.config.get<string>('DEV_RETURN_OTP');
     if (devReturnOtp === 'true') {
-      return { otp };
+      return { message: 'OTP sent', otp };
     }
 
-    await this.sendOtpEmail(dto.email, otp);
+    try {
+      await this.sendOtpEmail(dto.email, otp);
+    } catch {
+      throw new BadRequestException('Failed to send OTP email — please try again');
+    }
+
+    return { message: 'OTP sent' };
   }
 
   // ── Verify OTP ─────────────────────────────────────────────────────────
@@ -157,6 +156,8 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.new_password, 12);
     await this.repo.updatePasswordHash(identity.user_id, passwordHash);
+
+    return { message: 'Password reset successfully' };
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
