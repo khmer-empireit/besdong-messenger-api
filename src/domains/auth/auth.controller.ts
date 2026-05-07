@@ -1,18 +1,5 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -20,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { OAuthDto } from './dto/oauth.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
 import { RateLimit } from '../../shared/decorators/rate-limit.decorator';
@@ -79,7 +67,10 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit(5, 15 * 60)
   @ApiOperation({ summary: 'Send a 6-digit OTP to the email for password reset' })
-  @ApiResponse({ status: 200, description: 'OTP sent (response is identical whether email exists or not)' })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP sent (response is identical whether email exists or not)',
+  })
   @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
@@ -92,5 +83,17 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  @Post('oauth')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(10, 15 * 60)
+  @ApiOperation({ summary: 'Social login — Google, Facebook, or Apple' })
+  @ApiResponse({ status: 201, description: 'Returns access and refresh tokens' })
+  @ApiResponse({ status: 400, description: 'Validation error or unsupported provider' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired provider token' })
+  @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
+  oauthLogin(@Body() dto: OAuthDto, @Req() req: Request) {
+    return this.authService.oauthLogin(dto, req.headers['user-agent'] as string);
   }
 }

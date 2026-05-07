@@ -30,7 +30,8 @@ export class RateLimitGuard implements CanActivate {
     if (!options) return true;
 
     const request = context.switchToHttp().getRequest<Request>();
-    const ip = (request.headers['x-forwarded-for'] as string)?.split(',')[0] ?? request.ip ?? 'unknown';
+    const ip =
+      (request.headers['x-forwarded-for'] as string)?.split(',')[0] ?? request.ip ?? 'unknown';
     const handlerKey = `${context.getClass().name}_${context.getHandler().name}`;
 
     const limiter = this.getOrCreateLimiter(handlerKey, options.points, options.duration);

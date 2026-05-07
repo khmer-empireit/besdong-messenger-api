@@ -46,6 +46,15 @@ class EnvironmentVariables {
 
   @IsString()
   JWT_REFRESH_EXPIRES_IN: string;
+
+  @IsString()
+  GOOGLE_CLIENT_ID: string;
+
+  @IsString()
+  APPLE_CLIENT_ID: string;
+
+  @IsString()
+  FACEBOOK_APP_ID: string;
 }
 
 export function validate(config: Record<string, unknown>) {

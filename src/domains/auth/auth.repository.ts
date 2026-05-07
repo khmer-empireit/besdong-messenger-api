@@ -7,11 +7,7 @@ export class AuthRepository {
 
   // ── Users ──────────────────────────────────────────────────────────────
 
-  async createUser(data: {
-    username: string;
-    display_name: string;
-    phone?: string;
-  }) {
+  async createUser(data: { username: string; display_name: string; phone?: string }) {
     const [user] = await this.db.knex('users').insert(data).returning('*');
     return user;
   }
@@ -33,18 +29,51 @@ export class AuthRepository {
     password_hash?: string;
     provider_user_id?: string;
   }) {
-    const [identity] = await this.db
-      .knex('user_identities')
-      .insert(data)
-      .returning('*');
+    const [identity] = await this.db.knex('user_identities').insert(data).returning('*');
     return identity;
   }
 
   async findIdentityByEmail(email: string, provider: string) {
+    return this.db.knex('user_identities').where({ email, provider }).first();
+  }
+
+  async findIdentityByProviderId(provider: string, providerUserId: string) {
     return this.db
       .knex('user_identities')
-      .where({ email, provider })
+      .where({ provider, provider_user_id: providerUserId })
       .first();
+  }
+
+  async updateProviderUserId(identityId: string, providerUserId: string) {
+    return this.db
+      .knex('user_identities')
+      .where({ id: identityId })
+      .update({ provider_user_id: providerUserId });
+  }
+
+  async createOAuthUser(data: {
+    username: string;
+    display_name: string;
+    provider: string;
+    provider_user_id: string;
+    email: string;
+  }) {
+    return this.db.knex.transaction(async (trx) => {
+      const [user] = await trx('users')
+        .insert({ username: data.username, display_name: data.display_name })
+        .returning('*');
+
+      await trx('user_identities').insert({
+        user_id: user.id,
+        provider: data.provider,
+        provider_user_id: data.provider_user_id,
+        email: data.email,
+      });
+
+      await trx('user_settings').insert({ user_id: user.id });
+
+      return user;
+    });
   }
 
   async updatePasswordHash(userId: string, passwordHash: string) {
@@ -62,10 +91,7 @@ export class AuthRepository {
     device_info?: string;
     expires_at: Date;
   }) {
-    const [token] = await this.db
-      .knex('auth_tokens')
-      .insert(data)
-      .returning('*');
+    const [token] = await this.db.knex('auth_tokens').insert(data).returning('*');
     return token;
   }
 
@@ -78,10 +104,7 @@ export class AuthRepository {
   }
 
   async deleteAuthToken(userId: string, tokenHash: string) {
-    return this.db
-      .knex('auth_tokens')
-      .where({ user_id: userId, token_hash: tokenHash })
-      .delete();
+    return this.db.knex('auth_tokens').where({ user_id: userId, token_hash: tokenHash }).delete();
   }
 
   // ── OTP Codes ──────────────────────────────────────────────────────────
@@ -99,10 +122,7 @@ export class AuthRepository {
       .whereNull('used_at')
       .delete();
 
-    const [otp] = await this.db
-      .knex('otp_codes')
-      .insert(data)
-      .returning('*');
+    const [otp] = await this.db.knex('otp_codes').insert(data).returning('*');
     return otp;
   }
 
@@ -117,10 +137,7 @@ export class AuthRepository {
   }
 
   async markOtpUsed(id: string) {
-    return this.db
-      .knex('otp_codes')
-      .where({ id })
-      .update({ used_at: new Date() });
+    return this.db.knex('otp_codes').where({ id }).update({ used_at: new Date() });
   }
 
   // ── User Settings ──────────────────────────────────────────────────────

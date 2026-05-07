@@ -3,6 +3,7 @@ import { ConflictException, UnauthorizedException, BadRequestException } from '@
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { AuthService } from './auth.service';
 import { AuthRepository } from './auth.repository';
 
@@ -28,6 +29,15 @@ const mockAuthToken = {
   expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
 };
 
+const mockOAuthIdentity = {
+  id: 'identity-uuid-2',
+  user_id: 'user-uuid-1',
+  provider: 'google',
+  provider_user_id: 'google-sub-123',
+  email: 'oauth@gmail.com',
+  password_hash: null,
+};
+
 const mockOtp = {
   id: 'otp-uuid-1',
   user_id: 'user-uuid-1',
@@ -41,7 +51,6 @@ describe('AuthService', () => {
   let service: AuthService;
   let repo: jest.Mocked<AuthRepository>;
   let jwtService: jest.Mocked<JwtService>;
-  let configService: jest.Mocked<ConfigService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -51,10 +60,13 @@ describe('AuthService', () => {
           provide: AuthRepository,
           useValue: {
             findIdentityByEmail: jest.fn(),
+            findIdentityByProviderId: jest.fn(),
+            updateProviderUserId: jest.fn(),
             findUserByUsername: jest.fn(),
             createUser: jest.fn(),
             createIdentity: jest.fn(),
             createUserSettings: jest.fn(),
+            createOAuthUser: jest.fn(),
             createAuthToken: jest.fn(),
             findAuthToken: jest.fn(),
             deleteAuthToken: jest.fn(),
@@ -80,6 +92,9 @@ describe('AuthService', () => {
                 JWT_REFRESH_SECRET: 'test-refresh-secret',
                 JWT_ACCESS_EXPIRES_IN: '15m',
                 JWT_REFRESH_EXPIRES_IN: '30d',
+                GOOGLE_CLIENT_ID: 'test-google-client-id',
+                APPLE_CLIENT_ID: 'com.test.app',
+                FACEBOOK_APP_ID: 'test-facebook-app-id',
               };
               return map[key] ?? fallback;
             }),
@@ -91,7 +106,6 @@ describe('AuthService', () => {
     service = module.get(AuthService);
     repo = module.get(AuthRepository);
     jwtService = module.get(JwtService);
-    configService = module.get(ConfigService);
 
     jwtService.signAsync.mockResolvedValue('mock-token');
     repo.createAuthToken.mockResolvedValue(mockAuthToken);
@@ -130,7 +144,11 @@ describe('AuthService', () => {
       repo.createIdentity.mockResolvedValue(mockIdentity);
       repo.createUserSettings.mockResolvedValue({});
 
-      await service.register({ email: 'john.doe@gmail.com', password: 'password123', display_name: 'John' });
+      await service.register({
+        email: 'john.doe@gmail.com',
+        password: 'password123',
+        display_name: 'John',
+      });
 
       expect(repo.createUser).toHaveBeenCalledWith(
         expect.objectContaining({ username: 'john_doe' }),
@@ -141,12 +159,16 @@ describe('AuthService', () => {
       repo.findIdentityByEmail.mockResolvedValue(null);
       repo.findUserByUsername
         .mockResolvedValueOnce({ id: 'other-user' }) // first candidate taken
-        .mockResolvedValue(null);                     // second candidate free
+        .mockResolvedValue(null); // second candidate free
       repo.createUser.mockResolvedValue(mockUser);
       repo.createIdentity.mockResolvedValue(mockIdentity);
       repo.createUserSettings.mockResolvedValue({});
 
-      await service.register({ email: 'test@besdong.com', password: 'password123', display_name: 'Test' });
+      await service.register({
+        email: 'test@besdong.com',
+        password: 'password123',
+        display_name: 'Test',
+      });
 
       const calledWith = repo.createUser.mock.calls[0][0];
       expect(calledWith.username).toMatch(/^test_\d{4}$/);
@@ -156,7 +178,11 @@ describe('AuthService', () => {
       repo.findIdentityByEmail.mockResolvedValue(mockIdentity);
 
       await expect(
-        service.register({ email: 'test@besdong.com', password: 'password123', display_name: 'Test User' }),
+        service.register({
+          email: 'test@besdong.com',
+          password: 'password123',
+          display_name: 'Test User',
+        }),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -252,11 +278,133 @@ describe('AuthService', () => {
     });
   });
 
+  // ── OAuth Login ───────────────────────────────────────────────────────────
+
+  describe('oauthLogin', () => {
+    const googleProfile = {
+      provider_user_id: 'google-sub-123',
+      email: 'oauth@gmail.com',
+      display_name: 'OAuth User',
+    };
+
+    beforeEach(() => {
+      jest.spyOn(service as any, 'verifyGoogleToken').mockResolvedValue(googleProfile);
+      jest.spyOn(service as any, 'verifyFacebookToken').mockResolvedValue(googleProfile);
+      jest
+        .spyOn(service as any, 'verifyAppleToken')
+        .mockResolvedValue({ ...googleProfile, display_name: undefined });
+    });
+
+    it('returns tokens immediately for known provider_user_id', async () => {
+      repo.findIdentityByProviderId.mockResolvedValue(mockOAuthIdentity);
+
+      const result = await service.oauthLogin({ provider: 'google', token: 'id-token' });
+
+      expect(result).toEqual({ access_token: 'mock-token', refresh_token: 'mock-token' });
+      expect(repo.createOAuthUser).not.toHaveBeenCalled();
+    });
+
+    it('links provider_user_id when email matches an existing identity', async () => {
+      repo.findIdentityByProviderId.mockResolvedValue(null);
+      repo.findIdentityByEmail.mockResolvedValue({ ...mockOAuthIdentity, provider_user_id: null });
+      repo.updateProviderUserId.mockResolvedValue(1);
+
+      await service.oauthLogin({ provider: 'google', token: 'id-token' });
+
+      expect(repo.updateProviderUserId).toHaveBeenCalledWith(
+        mockOAuthIdentity.id,
+        'google-sub-123',
+      );
+      expect(repo.createOAuthUser).not.toHaveBeenCalled();
+    });
+
+    it('creates a new user in a transaction when no identity exists', async () => {
+      repo.findIdentityByProviderId.mockResolvedValue(null);
+      repo.findIdentityByEmail.mockResolvedValue(null);
+      repo.findUserByUsername.mockResolvedValue(null);
+      repo.createOAuthUser.mockResolvedValue(mockUser);
+
+      const result = await service.oauthLogin({ provider: 'google', token: 'id-token' });
+
+      expect(repo.createOAuthUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'google',
+          email: 'oauth@gmail.com',
+          display_name: 'OAuth User',
+        }),
+      );
+      expect(result).toEqual({ access_token: 'mock-token', refresh_token: 'mock-token' });
+    });
+
+    it('falls back to username as display_name when Apple returns no name', async () => {
+      repo.findIdentityByProviderId.mockResolvedValue(null);
+      repo.findIdentityByEmail.mockResolvedValue(null);
+      repo.findUserByUsername.mockResolvedValue(null);
+      repo.createOAuthUser.mockResolvedValue(mockUser);
+
+      await service.oauthLogin({ provider: 'apple', token: 'apple-token' });
+
+      const call = repo.createOAuthUser.mock.calls[0][0];
+      expect(call.display_name).toBe(call.username);
+    });
+
+    it('handles Apple relay email as opaque identifier', async () => {
+      const relayProfile = {
+        provider_user_id: 'apple-sub-999',
+        email: 'relay@privaterelay.appleid.com',
+        display_name: undefined,
+      };
+      jest.spyOn(service as any, 'verifyAppleToken').mockResolvedValue(relayProfile);
+      repo.findIdentityByProviderId.mockResolvedValue(null);
+      repo.findIdentityByEmail.mockResolvedValue(null);
+      repo.findUserByUsername.mockResolvedValue(null);
+      repo.createOAuthUser.mockResolvedValue(mockUser);
+
+      const result = await service.oauthLogin({ provider: 'apple', token: 'apple-token' });
+
+      expect(repo.createOAuthUser).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'relay@privaterelay.appleid.com' }),
+      );
+      expect(result).toEqual({ access_token: 'mock-token', refresh_token: 'mock-token' });
+    });
+
+    it('throws UnauthorizedException on expired Google token', async () => {
+      jest
+        .spyOn(service as any, 'verifyGoogleToken')
+        .mockRejectedValue(new UnauthorizedException('Invalid Google token'));
+
+      await expect(
+        service.oauthLogin({ provider: 'google', token: 'expired-token' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException on invalid Facebook app ID', async () => {
+      jest
+        .spyOn(service as any, 'verifyFacebookToken')
+        .mockRejectedValue(new UnauthorizedException('Invalid Facebook token'));
+
+      await expect(
+        service.oauthLogin({ provider: 'facebook', token: 'other-app-token' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rolls back transaction when createOAuthUser throws', async () => {
+      repo.findIdentityByProviderId.mockResolvedValue(null);
+      repo.findIdentityByEmail.mockResolvedValue(null);
+      repo.findUserByUsername.mockResolvedValue(null);
+      repo.createOAuthUser.mockRejectedValue(new Error('DB constraint violation'));
+
+      await expect(service.oauthLogin({ provider: 'google', token: 'id-token' })).rejects.toThrow(
+        'DB constraint violation',
+      );
+      expect(repo.createAuthToken).not.toHaveBeenCalled();
+    });
+  });
+
   // ── Reset Password ────────────────────────────────────────────────────────
 
   describe('resetPassword', () => {
     const otp = '123456';
-    const crypto = require('crypto');
     const codeHash = crypto.createHash('sha256').update(otp).digest('hex');
 
     it('resets password on valid OTP', async () => {
@@ -283,7 +431,11 @@ describe('AuthService', () => {
       repo.findActiveOtp.mockResolvedValue(null);
 
       await expect(
-        service.resetPassword({ email: 'test@besdong.com', otp_code: '000000', new_password: 'new' }),
+        service.resetPassword({
+          email: 'test@besdong.com',
+          otp_code: '000000',
+          new_password: 'new',
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -292,7 +444,11 @@ describe('AuthService', () => {
       repo.findActiveOtp.mockResolvedValue({ ...mockOtp, code_hash: codeHash });
 
       await expect(
-        service.resetPassword({ email: 'test@besdong.com', otp_code: '999999', new_password: 'new' }),
+        service.resetPassword({
+          email: 'test@besdong.com',
+          otp_code: '999999',
+          new_password: 'new',
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });
