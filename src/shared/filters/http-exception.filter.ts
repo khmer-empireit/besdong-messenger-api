@@ -28,10 +28,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let errors: Record<string, string> = {};
 
     if (Array.isArray(raw?.message)) {
-      // class-validator validation errors — each string is like:
-      // "email must be an email" or "password must be longer than or equal to 8 characters"
       message = 'Validation failed';
       errors = this.parseValidationErrors(raw.message as string[]);
+    } else if (typeof raw === 'string') {
+      message = raw;
     } else {
       message = raw?.message || 'Internal server error';
     }
