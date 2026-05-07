@@ -63,9 +63,7 @@ describe('AuthService', () => {
             findIdentityByProviderId: jest.fn(),
             updateProviderUserId: jest.fn(),
             findUserByUsername: jest.fn(),
-            createUser: jest.fn(),
-            createIdentity: jest.fn(),
-            createUserSettings: jest.fn(),
+            createLocalUser: jest.fn(),
             createOAuthUser: jest.fn(),
             createAuthToken: jest.fn(),
             findAuthToken: jest.fn(),
@@ -117,9 +115,7 @@ describe('AuthService', () => {
     it('creates user and returns tokens', async () => {
       repo.findIdentityByEmail.mockResolvedValue(null);
       repo.findUserByUsername.mockResolvedValue(null);
-      repo.createUser.mockResolvedValue(mockUser);
-      repo.createIdentity.mockResolvedValue(mockIdentity);
-      repo.createUserSettings.mockResolvedValue({});
+      repo.createLocalUser.mockResolvedValue(mockUser);
 
       const result = await service.register({
         email: 'test@besdong.com',
@@ -128,21 +124,15 @@ describe('AuthService', () => {
       });
 
       expect(result).toEqual({ access_token: 'mock-token', refresh_token: 'mock-token' });
-      expect(repo.createUser).toHaveBeenCalledWith(
-        expect.objectContaining({ display_name: 'Test User' }),
+      expect(repo.createLocalUser).toHaveBeenCalledWith(
+        expect.objectContaining({ display_name: 'Test User', email: 'test@besdong.com' }),
       );
-      expect(repo.createIdentity).toHaveBeenCalledWith(
-        expect.objectContaining({ provider: 'local', email: 'test@besdong.com' }),
-      );
-      expect(repo.createUserSettings).toHaveBeenCalledWith(mockUser.id);
     });
 
     it('auto-generates username from email prefix', async () => {
       repo.findIdentityByEmail.mockResolvedValue(null);
       repo.findUserByUsername.mockResolvedValue(null);
-      repo.createUser.mockResolvedValue(mockUser);
-      repo.createIdentity.mockResolvedValue(mockIdentity);
-      repo.createUserSettings.mockResolvedValue({});
+      repo.createLocalUser.mockResolvedValue(mockUser);
 
       await service.register({
         email: 'john.doe@gmail.com',
@@ -150,7 +140,7 @@ describe('AuthService', () => {
         display_name: 'John',
       });
 
-      expect(repo.createUser).toHaveBeenCalledWith(
+      expect(repo.createLocalUser).toHaveBeenCalledWith(
         expect.objectContaining({ username: 'john_doe' }),
       );
     });
@@ -160,9 +150,7 @@ describe('AuthService', () => {
       repo.findUserByUsername
         .mockResolvedValueOnce({ id: 'other-user' }) // first candidate taken
         .mockResolvedValue(null); // second candidate free
-      repo.createUser.mockResolvedValue(mockUser);
-      repo.createIdentity.mockResolvedValue(mockIdentity);
-      repo.createUserSettings.mockResolvedValue({});
+      repo.createLocalUser.mockResolvedValue(mockUser);
 
       await service.register({
         email: 'test@besdong.com',
@@ -170,7 +158,7 @@ describe('AuthService', () => {
         display_name: 'Test',
       });
 
-      const calledWith = repo.createUser.mock.calls[0][0];
+      const calledWith = repo.createLocalUser.mock.calls[0][0];
       expect(calledWith.username).toMatch(/^test_\d{4}$/);
     });
 
