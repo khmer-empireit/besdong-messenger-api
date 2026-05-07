@@ -132,7 +132,7 @@ export class AuthService {
     const codeHash = this.hashOtp(otpCode);
     if (codeHash !== otp.code_hash) throw new BadRequestException('Invalid OTP');
 
-    return { message: 'OTP verified' };
+    return { message: 'OTP is valid, you can now reset your password' };
   }
 
   // ── Reset Password ─────────────────────────────────────────────────────
