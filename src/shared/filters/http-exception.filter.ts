@@ -13,7 +13,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return response.status(HttpStatus.PAYLOAD_TOO_LARGE).json({
         success: false,
         statusCode: HttpStatus.PAYLOAD_TOO_LARGE,
-        message: 'File is too large. Maximum size is 10 MB.',
+        message: 'File is too large. Maximum allowed sizes: images 10 MB, documents 50 MB, videos 200 MB.',
         errors: {},
         path: request.url,
         timestamp: new Date().toISOString(),
