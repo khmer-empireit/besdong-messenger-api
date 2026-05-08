@@ -1,7 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 class UserProfileData {
-  @ApiProperty({ example: 'uuid' })
+  @ApiProperty({ example: 'a1000000-0000-0000-0000-000000000001' })
   id: string;
 
   @ApiProperty({ example: 'sreng_sokheng' })
@@ -10,16 +10,34 @@ class UserProfileData {
   @ApiProperty({ example: 'Sreng Sokheng' })
   display_name: string;
 
-  @ApiProperty({ example: null, nullable: true })
+  @ApiPropertyOptional({ example: 'sokheng@example.com', nullable: true })
+  email: string | null;
+
+  @ApiPropertyOptional({ example: '+85512345678', nullable: true })
   phone: string | null;
 
-  @ApiProperty({ example: 'https://cdn.example.com/avatar.jpg', nullable: true })
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatar.webp', nullable: true })
   avatar_url: string | null;
+
+  @ApiPropertyOptional({ example: 'Hey there!', nullable: true })
+  bio: string | null;
+
+  @ApiPropertyOptional({ example: '1999-05-08', nullable: true })
+  dob: string | null;
+
+  @ApiProperty({ enum: ['user', 'admin'], example: 'user' })
+  role: string;
+
+  @ApiProperty({ example: true })
+  is_active: boolean;
+
+  @ApiProperty({ example: false })
+  is_verified: boolean;
 
   @ApiProperty({ example: true })
   is_online: boolean;
 
-  @ApiProperty({ example: null, nullable: true })
+  @ApiPropertyOptional({ example: null, nullable: true })
   last_seen_at: Date | null;
 
   @ApiProperty()
@@ -46,7 +64,7 @@ export class UserProfileListResponseDto {
 }
 
 class PublicProfileData {
-  @ApiProperty({ example: 'uuid' })
+  @ApiProperty({ example: 'a1000000-0000-0000-0000-000000000001' })
   id: string;
 
   @ApiProperty({ example: 'sreng_sokheng' })
@@ -55,13 +73,16 @@ class PublicProfileData {
   @ApiProperty({ example: 'Sreng Sokheng' })
   display_name: string;
 
-  @ApiProperty({ example: 'https://cdn.example.com/avatar.jpg', nullable: true })
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatar.webp', nullable: true })
   avatar_url: string | null;
+
+  @ApiPropertyOptional({ example: 'Hey there!', nullable: true })
+  bio: string | null;
 
   @ApiProperty({ example: true })
   is_online: boolean;
 
-  @ApiProperty({ example: null, nullable: true })
+  @ApiPropertyOptional({ example: null, nullable: true })
   last_seen_at: Date | null;
 }
 

@@ -14,7 +14,7 @@ export class UserRepository implements IUserRepository {
 
   async updateProfile(
     id: string,
-    data: Partial<Pick<UserProfile, 'display_name' | 'avatar_url'>>,
+    data: Partial<Pick<UserProfile, 'display_name' | 'avatar_url' | 'bio' | 'dob'>>,
   ): Promise<UserProfile> {
     const [user] = await this.db.knex('users').where({ id }).update(data).returning('*');
     return user as UserProfile;

@@ -38,7 +38,7 @@ export class UserService {
   async getPublicProfile(userId: string) {
     const user = await this.repo.findById(userId);
     if (!user) throw new NotFoundException('User not found');
-    const { id, username, display_name, avatar_url, is_online, last_seen_at } = user;
-    return { id, username, display_name, avatar_url, is_online, last_seen_at };
+    const { id, username, display_name, avatar_url, bio, is_online, last_seen_at } = user;
+    return { id, username, display_name, avatar_url, bio, is_online, last_seen_at };
   }
 }
