@@ -48,13 +48,10 @@ class EnvironmentVariables {
   JWT_REFRESH_EXPIRES_IN: string;
 
   @IsString()
-  GOOGLE_CLIENT_ID: string;
+  FIREBASE_PROJECT_ID: string;
 
   @IsString()
-  APPLE_CLIENT_ID: string;
-
-  @IsString()
-  FACEBOOK_APP_ID: string;
+  FIREBASE_SERVICE_ACCOUNT: string;
 }
 
 export function validate(config: Record<string, unknown>) {

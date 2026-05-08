@@ -26,7 +26,11 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit(10, 60 * 60)
   @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({ status: 201, description: 'Returns access and refresh tokens', type: TokensResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Returns access and refresh tokens',
+    type: TokensResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 409, description: 'Email already registered' })
   @ApiResponse({ status: 429, description: 'Too many registrations — wait 1 hour' })
@@ -39,7 +43,11 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit(5, 15 * 60)
   @ApiOperation({ summary: 'Login with email and password' })
-  @ApiResponse({ status: 200, description: 'Returns access and refresh tokens', type: TokensResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns access and refresh tokens',
+    type: TokensResponseDto,
+  })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   login(@Body() dto: LoginDto, @Req() req: Request) {
@@ -51,7 +59,11 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit(10, 15 * 60)
   @ApiOperation({ summary: 'Issue a new access token using a refresh token' })
-  @ApiResponse({ status: 200, description: 'Returns a new access token', type: AccessTokenResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns a new access token',
+    type: AccessTokenResponseDto,
+  })
   @ApiResponse({ status: 401, description: 'Invalid or revoked refresh token' })
   @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   refresh(@Body() dto: RefreshDto) {
@@ -74,7 +86,12 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit(5, 15 * 60)
   @ApiOperation({ summary: 'Send or resend a 6-digit OTP to the email for password reset' })
-  @ApiResponse({ status: 200, description: 'OTP sent — also use this to resend. Any previous unused OTP for this email is invalidated.', type: MessageResponseDto })
+  @ApiResponse({
+    status: 200,
+    description:
+      'OTP sent — also use this to resend. Any previous unused OTP for this email is invalidated.',
+    type: MessageResponseDto,
+  })
   @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
@@ -85,7 +102,11 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit(5, 15 * 60)
   @ApiOperation({ summary: 'Verify the OTP before resetting password' })
-  @ApiResponse({ status: 200, description: 'OTP is valid — proceed to reset password', type: MessageResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP is valid — proceed to reset password',
+    type: MessageResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   verifyOtp(@Body() dto: VerifyOtpDto) {
@@ -97,7 +118,11 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit(5, 15 * 60)
   @ApiOperation({ summary: 'Reset password using the OTP received by email' })
-  @ApiResponse({ status: 200, description: 'Password updated successfully', type: MessageResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password updated successfully',
+    type: MessageResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   resetPassword(@Body() dto: ResetPasswordDto) {
@@ -108,7 +133,11 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit(10, 15 * 60)
   @ApiOperation({ summary: 'Social login — Google, Facebook, or Apple' })
-  @ApiResponse({ status: 201, description: 'Returns access and refresh tokens', type: TokensResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Returns access and refresh tokens',
+    type: TokensResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Validation error or unsupported provider' })
   @ApiResponse({ status: 401, description: 'Invalid or expired provider token' })
   @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
