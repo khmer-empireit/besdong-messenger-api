@@ -18,6 +18,7 @@ export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Hey there! I am using Besdong.' })
   @IsOptional()
   @IsString()
+  @MinLength(1)
   @MaxLength(500)
   bio?: string;
 
