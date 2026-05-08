@@ -12,39 +12,50 @@ const mockUser = {
   username: 'testuser',
   display_name: 'Test User',
   phone: null,
+  avatar_url: null,
+  is_online: false,
+  last_seen_at: null,
+  created_at: new Date(),
+  updated_at: new Date(),
 };
 
 const mockIdentity = {
   id: 'identity-uuid-1',
   user_id: 'user-uuid-1',
-  provider: 'local',
+  provider: 'local' as const,
+  provider_user_id: null,
   email: 'test@besdong.com',
   password_hash: '$2a$12$hashedpassword',
+  created_at: new Date(),
 };
 
 const mockAuthToken = {
   id: 'token-uuid-1',
   user_id: 'user-uuid-1',
   token_hash: 'hashed-refresh-token',
+  device_info: null,
   expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  created_at: new Date(),
 };
 
 const mockOAuthIdentity = {
   id: 'identity-uuid-2',
   user_id: 'user-uuid-1',
-  provider: 'google',
+  provider: 'google' as const,
   provider_user_id: 'google-sub-123',
   email: 'oauth@gmail.com',
   password_hash: null,
+  created_at: new Date(),
 };
 
 const mockOtp = {
   id: 'otp-uuid-1',
   user_id: 'user-uuid-1',
   code_hash: '', // set per test
-  purpose: 'reset_password',
+  purpose: 'reset_password' as const,
   expires_at: new Date(Date.now() + 15 * 60 * 1000),
   used_at: null,
+  created_at: new Date(),
 };
 
 describe('AuthService', () => {
@@ -113,8 +124,8 @@ describe('AuthService', () => {
 
   describe('register', () => {
     it('creates user and returns tokens', async () => {
-      repo.findIdentityByEmail.mockResolvedValue(null);
-      repo.findUserByUsername.mockResolvedValue(null);
+      repo.findIdentityByEmail.mockResolvedValue(undefined);
+      repo.findUserByUsername.mockResolvedValue(undefined);
       repo.createLocalUser.mockResolvedValue(mockUser);
 
       const result = await service.register({
@@ -130,8 +141,8 @@ describe('AuthService', () => {
     });
 
     it('auto-generates username from email prefix', async () => {
-      repo.findIdentityByEmail.mockResolvedValue(null);
-      repo.findUserByUsername.mockResolvedValue(null);
+      repo.findIdentityByEmail.mockResolvedValue(undefined);
+      repo.findUserByUsername.mockResolvedValue(undefined);
       repo.createLocalUser.mockResolvedValue(mockUser);
 
       await service.register({
@@ -146,10 +157,10 @@ describe('AuthService', () => {
     });
 
     it('appends suffix when generated username is taken', async () => {
-      repo.findIdentityByEmail.mockResolvedValue(null);
+      repo.findIdentityByEmail.mockResolvedValue(undefined);
       repo.findUserByUsername
-        .mockResolvedValueOnce({ id: 'other-user' }) // first candidate taken
-        .mockResolvedValue(null); // second candidate free
+        .mockResolvedValueOnce(mockUser) // first candidate taken
+        .mockResolvedValue(undefined); // second candidate free
       repo.createLocalUser.mockResolvedValue(mockUser);
 
       await service.register({
@@ -188,7 +199,7 @@ describe('AuthService', () => {
     });
 
     it('throws UnauthorizedException if email not found', async () => {
-      repo.findIdentityByEmail.mockResolvedValue(null);
+      repo.findIdentityByEmail.mockResolvedValue(undefined);
 
       await expect(
         service.login({ email: 'nobody@besdong.com', password: 'password123' }),
@@ -225,7 +236,7 @@ describe('AuthService', () => {
 
     it('throws UnauthorizedException if token not in DB (revoked)', async () => {
       jwtService.verifyAsync.mockResolvedValue({ sub: 'user-uuid-1' });
-      repo.findAuthToken.mockResolvedValue(null);
+      repo.findAuthToken.mockResolvedValue(undefined);
 
       await expect(service.refresh('revoked-token')).rejects.toThrow(UnauthorizedException);
     });
@@ -235,7 +246,7 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     it('deletes the auth token', async () => {
-      repo.deleteAuthToken.mockResolvedValue(1);
+      repo.deleteAuthToken.mockResolvedValue(undefined);
 
       await service.logout('user-uuid-1', 'refresh-token');
 
@@ -248,7 +259,7 @@ describe('AuthService', () => {
   describe('forgotPassword', () => {
     it('stores OTP when email exists', async () => {
       repo.findIdentityByEmail.mockResolvedValue(mockIdentity);
-      repo.upsertOtpCode.mockResolvedValue({});
+      repo.upsertOtpCode.mockResolvedValue(mockOtp);
       jest.spyOn(service as any, 'sendOtpEmail').mockResolvedValue(undefined);
 
       await service.forgotPassword({ email: 'test@besdong.com' });
@@ -259,7 +270,7 @@ describe('AuthService', () => {
     });
 
     it('does not throw when email does not exist (prevents enumeration)', async () => {
-      repo.findIdentityByEmail.mockResolvedValue(null);
+      repo.findIdentityByEmail.mockResolvedValue(undefined);
 
       await expect(service.forgotPassword({ email: 'ghost@besdong.com' })).resolves.not.toThrow();
       expect(repo.upsertOtpCode).not.toHaveBeenCalled();
@@ -293,9 +304,9 @@ describe('AuthService', () => {
     });
 
     it('links provider_user_id when email matches an existing identity', async () => {
-      repo.findIdentityByProviderId.mockResolvedValue(null);
+      repo.findIdentityByProviderId.mockResolvedValue(undefined);
       repo.findIdentityByEmail.mockResolvedValue({ ...mockOAuthIdentity, provider_user_id: null });
-      repo.updateProviderUserId.mockResolvedValue(1);
+      repo.updateProviderUserId.mockResolvedValue(undefined);
 
       await service.oauthLogin({ provider: 'google', token: 'id-token' });
 
@@ -307,9 +318,9 @@ describe('AuthService', () => {
     });
 
     it('creates a new user in a transaction when no identity exists', async () => {
-      repo.findIdentityByProviderId.mockResolvedValue(null);
-      repo.findIdentityByEmail.mockResolvedValue(null);
-      repo.findUserByUsername.mockResolvedValue(null);
+      repo.findIdentityByProviderId.mockResolvedValue(undefined);
+      repo.findIdentityByEmail.mockResolvedValue(undefined);
+      repo.findUserByUsername.mockResolvedValue(undefined);
       repo.createOAuthUser.mockResolvedValue(mockUser);
 
       const result = await service.oauthLogin({ provider: 'google', token: 'id-token' });
@@ -325,9 +336,9 @@ describe('AuthService', () => {
     });
 
     it('falls back to username as display_name when Apple returns no name', async () => {
-      repo.findIdentityByProviderId.mockResolvedValue(null);
-      repo.findIdentityByEmail.mockResolvedValue(null);
-      repo.findUserByUsername.mockResolvedValue(null);
+      repo.findIdentityByProviderId.mockResolvedValue(undefined);
+      repo.findIdentityByEmail.mockResolvedValue(undefined);
+      repo.findUserByUsername.mockResolvedValue(undefined);
       repo.createOAuthUser.mockResolvedValue(mockUser);
 
       await service.oauthLogin({ provider: 'apple', token: 'apple-token' });
@@ -343,9 +354,9 @@ describe('AuthService', () => {
         display_name: undefined,
       };
       jest.spyOn(service as any, 'verifyAppleToken').mockResolvedValue(relayProfile);
-      repo.findIdentityByProviderId.mockResolvedValue(null);
-      repo.findIdentityByEmail.mockResolvedValue(null);
-      repo.findUserByUsername.mockResolvedValue(null);
+      repo.findIdentityByProviderId.mockResolvedValue(undefined);
+      repo.findIdentityByEmail.mockResolvedValue(undefined);
+      repo.findUserByUsername.mockResolvedValue(undefined);
       repo.createOAuthUser.mockResolvedValue(mockUser);
 
       const result = await service.oauthLogin({ provider: 'apple', token: 'apple-token' });
@@ -377,9 +388,9 @@ describe('AuthService', () => {
     });
 
     it('rolls back transaction when createOAuthUser throws', async () => {
-      repo.findIdentityByProviderId.mockResolvedValue(null);
-      repo.findIdentityByEmail.mockResolvedValue(null);
-      repo.findUserByUsername.mockResolvedValue(null);
+      repo.findIdentityByProviderId.mockResolvedValue(undefined);
+      repo.findIdentityByEmail.mockResolvedValue(undefined);
+      repo.findUserByUsername.mockResolvedValue(undefined);
       repo.createOAuthUser.mockRejectedValue(new Error('DB constraint violation'));
 
       await expect(service.oauthLogin({ provider: 'google', token: 'id-token' })).rejects.toThrow(
@@ -398,8 +409,8 @@ describe('AuthService', () => {
     it('resets password on valid OTP', async () => {
       repo.findIdentityByEmail.mockResolvedValue(mockIdentity);
       repo.findActiveOtp.mockResolvedValue({ ...mockOtp, code_hash: codeHash });
-      repo.markOtpUsed.mockResolvedValue(1);
-      repo.updatePasswordHash.mockResolvedValue(1);
+      repo.markOtpUsed.mockResolvedValue(undefined);
+      repo.updatePasswordHash.mockResolvedValue(undefined);
 
       await service.resetPassword({
         email: 'test@besdong.com',
@@ -416,7 +427,7 @@ describe('AuthService', () => {
 
     it('throws BadRequestException if OTP not found or expired', async () => {
       repo.findIdentityByEmail.mockResolvedValue(mockIdentity);
-      repo.findActiveOtp.mockResolvedValue(null);
+      repo.findActiveOtp.mockResolvedValue(undefined);
 
       await expect(
         service.resetPassword({

@@ -51,6 +51,7 @@ export class AuthService {
     const identity = await this.repo.findIdentityByEmail(dto.email, 'local');
     if (!identity) throw new UnauthorizedException('Invalid credentials');
 
+    if (!identity.password_hash) throw new UnauthorizedException('Invalid credentials');
     const valid = await bcrypt.compare(dto.password, identity.password_hash);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 

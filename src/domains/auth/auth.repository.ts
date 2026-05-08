@@ -1,23 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { DbService } from '../../infrastructure/database/db.service';
+import { IAuthRepository } from './interfaces/auth-repository.interface';
+import { User } from './entities/user.entity';
+import { Identity } from './entities/identity.entity';
+import { AuthToken } from './entities/auth-token.entity';
+import { OtpCode } from './entities/otp-code.entity';
 
 @Injectable()
-export class AuthRepository {
+export class AuthRepository implements IAuthRepository {
   constructor(private db: DbService) {}
 
   // ── Users ──────────────────────────────────────────────────────────────
 
-  async createUser(data: { username: string; display_name: string; phone?: string }) {
+  async createUser(data: { username: string; display_name: string; phone?: string }): Promise<User> {
     const [user] = await this.db.knex('users').insert(data).returning('*');
-    return user;
+    return user as User;
   }
 
-  async findUserById(id: string) {
-    return this.db.knex('users').where({ id }).first();
+  async findUserById(id: string): Promise<User | undefined> {
+    return this.db.knex('users').where({ id }).first() as Promise<User | undefined>;
   }
 
-  async findUserByUsername(username: string) {
-    return this.db.knex('users').where({ username }).first();
+  async findUserByUsername(username: string): Promise<User | undefined> {
+    return this.db.knex('users').where({ username }).first() as Promise<User | undefined>;
   }
 
   async createLocalUser(data: {
@@ -25,7 +30,7 @@ export class AuthRepository {
     display_name: string;
     email: string;
     password_hash: string;
-  }) {
+  }): Promise<User> {
     return this.db.knex.transaction(async (trx) => {
       const [user] = await trx('users')
         .insert({ username: data.username, display_name: data.display_name })
@@ -40,7 +45,7 @@ export class AuthRepository {
 
       await trx('user_settings').insert({ user_id: user.id });
 
-      return user;
+      return user as User;
     });
   }
 
@@ -52,24 +57,24 @@ export class AuthRepository {
     email: string;
     password_hash?: string;
     provider_user_id?: string;
-  }) {
+  }): Promise<Identity> {
     const [identity] = await this.db.knex('user_identities').insert(data).returning('*');
-    return identity;
+    return identity as Identity;
   }
 
-  async findIdentityByEmail(email: string, provider: string) {
-    return this.db.knex('user_identities').where({ email, provider }).first();
+  async findIdentityByEmail(email: string, provider: string): Promise<Identity | undefined> {
+    return this.db.knex('user_identities').where({ email, provider }).first() as Promise<Identity | undefined>;
   }
 
-  async findIdentityByProviderId(provider: string, providerUserId: string) {
+  async findIdentityByProviderId(provider: string, providerUserId: string): Promise<Identity | undefined> {
     return this.db
       .knex('user_identities')
       .where({ provider, provider_user_id: providerUserId })
-      .first();
+      .first() as Promise<Identity | undefined>;
   }
 
-  async updateProviderUserId(identityId: string, providerUserId: string) {
-    return this.db
+  async updateProviderUserId(identityId: string, providerUserId: string): Promise<void> {
+    await this.db
       .knex('user_identities')
       .where({ id: identityId })
       .update({ provider_user_id: providerUserId });
@@ -81,7 +86,7 @@ export class AuthRepository {
     provider: string;
     provider_user_id: string;
     email: string;
-  }) {
+  }): Promise<User> {
     return this.db.knex.transaction(async (trx) => {
       const [user] = await trx('users')
         .insert({ username: data.username, display_name: data.display_name })
@@ -96,12 +101,12 @@ export class AuthRepository {
 
       await trx('user_settings').insert({ user_id: user.id });
 
-      return user;
+      return user as User;
     });
   }
 
-  async updatePasswordHash(userId: string, passwordHash: string) {
-    return this.db
+  async updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+    await this.db
       .knex('user_identities')
       .where({ user_id: userId, provider: 'local' })
       .update({ password_hash: passwordHash });
@@ -114,21 +119,21 @@ export class AuthRepository {
     token_hash: string;
     device_info?: string;
     expires_at: Date;
-  }) {
+  }): Promise<AuthToken> {
     const [token] = await this.db.knex('auth_tokens').insert(data).returning('*');
-    return token;
+    return token as AuthToken;
   }
 
-  async findAuthToken(userId: string, tokenHash: string) {
+  async findAuthToken(userId: string, tokenHash: string): Promise<AuthToken | undefined> {
     return this.db
       .knex('auth_tokens')
       .where({ user_id: userId, token_hash: tokenHash })
       .where('expires_at', '>', new Date())
-      .first();
+      .first() as Promise<AuthToken | undefined>;
   }
 
-  async deleteAuthToken(userId: string, tokenHash: string) {
-    return this.db.knex('auth_tokens').where({ user_id: userId, token_hash: tokenHash }).delete();
+  async deleteAuthToken(userId: string, tokenHash: string): Promise<void> {
+    await this.db.knex('auth_tokens').where({ user_id: userId, token_hash: tokenHash }).delete();
   }
 
   // ── OTP Codes ──────────────────────────────────────────────────────────
@@ -138,8 +143,7 @@ export class AuthRepository {
     code_hash: string;
     purpose: 'reset_password' | 'verify_email';
     expires_at: Date;
-  }) {
-    // Delete any existing unused OTP for this user+purpose first
+  }): Promise<OtpCode> {
     await this.db
       .knex('otp_codes')
       .where({ user_id: data.user_id, purpose: data.purpose })
@@ -147,30 +151,26 @@ export class AuthRepository {
       .delete();
 
     const [otp] = await this.db.knex('otp_codes').insert(data).returning('*');
-    return otp;
+    return otp as OtpCode;
   }
 
-  async findActiveOtp(userId: string, purpose: string) {
+  async findActiveOtp(userId: string, purpose: string): Promise<OtpCode | undefined> {
     return this.db
       .knex('otp_codes')
       .where({ user_id: userId, purpose })
       .whereNull('used_at')
       .where('expires_at', '>', new Date())
       .orderBy('created_at', 'desc')
-      .first();
+      .first() as Promise<OtpCode | undefined>;
   }
 
-  async markOtpUsed(id: string) {
-    return this.db.knex('otp_codes').where({ id }).update({ used_at: new Date() });
+  async markOtpUsed(id: string): Promise<void> {
+    await this.db.knex('otp_codes').where({ id }).update({ used_at: new Date() });
   }
 
   // ── User Settings ──────────────────────────────────────────────────────
 
-  async createUserSettings(userId: string) {
-    const [settings] = await this.db
-      .knex('user_settings')
-      .insert({ user_id: userId })
-      .returning('*');
-    return settings;
+  async createUserSettings(userId: string): Promise<void> {
+    await this.db.knex('user_settings').insert({ user_id: userId }).returning('*');
   }
 }
