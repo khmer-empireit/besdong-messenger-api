@@ -19,6 +19,7 @@ const config: { [key: string]: Knex.Config } = {
     },
     seeds: {
       directory: './database/seeds',
+      extension: 'ts',
     },
   },
 
