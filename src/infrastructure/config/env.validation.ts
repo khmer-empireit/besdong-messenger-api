@@ -52,6 +52,9 @@ class EnvironmentVariables {
 
   @IsString()
   FIREBASE_SERVICE_ACCOUNT: string;
+
+  @IsString()
+  TELEGRAM_BOT_TOKEN: string;
 }
 
 export function validate(config: Record<string, unknown>) {

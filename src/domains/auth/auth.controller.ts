@@ -8,6 +8,7 @@ import { RefreshDto } from './dto/refresh.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OAuthDto } from './dto/oauth.dto';
+import { TelegramAuthDto } from './dto/telegram-auth.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { TokensResponseDto } from './dto/tokens-response.dto';
 import { AccessTokenResponseDto } from './dto/access-token-response.dto';
@@ -143,5 +144,18 @@ export class AuthController {
   @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
   oauthLogin(@Body() dto: OAuthDto, @Req() req: Request) {
     return this.authService.oauthLogin(dto, req.headers['user-agent'] as string);
+  }
+
+  @Post('telegram')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(10, 15 * 60)
+  @ApiOperation({ summary: 'Login with Telegram — verifies the auth payload from the native Telegram SDK' })
+  @ApiResponse({ status: 200, description: 'Returns access and refresh tokens', type: TokensResponseDto })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired Telegram auth data' })
+  @ApiResponse({ status: 429, description: 'Too many attempts — wait 15 minutes' })
+  telegramLogin(@Body() dto: TelegramAuthDto, @Req() req: Request) {
+    return this.authService.telegramLogin(dto, req.headers['user-agent'] as string);
   }
 }

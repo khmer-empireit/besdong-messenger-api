@@ -16,6 +16,7 @@ import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OAuthDto } from './dto/oauth.dto';
+import { TelegramAuthDto } from './dto/telegram-auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -187,6 +188,59 @@ export class AuthService {
     return this.issueTokens(user.id, deviceInfo);
   }
 
+  // ── Telegram ───────────────────────────────────────────────────────────
+
+  async telegramLogin(dto: TelegramAuthDto, deviceInfo?: string) {
+    this.verifyTelegramAuth(dto);
+
+    const providerUserId = String(dto.id);
+    const existing = await this.repo.findIdentityByProviderId('telegram', providerUserId);
+    if (existing) return this.issueTokens(existing.user_id, deviceInfo);
+
+    const base = (dto.username ?? `telegram${dto.id}`)
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .slice(0, 40);
+    const username = await this.generateUniqueUsername(base);
+    const displayName = [dto.first_name, dto.last_name].filter(Boolean).join(' ');
+
+    const user = await this.repo.createOAuthUser({
+      username,
+      display_name: displayName,
+      provider: 'telegram',
+      provider_user_id: providerUserId,
+      email: null,
+      avatar_url: dto.photo_url,
+    });
+
+    return this.issueTokens(user.id, deviceInfo);
+  }
+
+  private verifyTelegramAuth(dto: TelegramAuthDto): void {
+    const botToken = this.config.get<string>('TELEGRAM_BOT_TOKEN');
+
+    const now = Math.floor(Date.now() / 1000);
+    if (now - dto.auth_date > 86400) {
+      throw new UnauthorizedException('Telegram auth data expired');
+    }
+
+    const { hash, ...fields } = dto;
+    const dataCheckString = Object.keys(fields)
+      .sort()
+      .map((key) => `${key}=${(fields as any)[key]}`)
+      .join('\n');
+
+    const secretKey = crypto.createHash('sha256').update(botToken!).digest();
+    const computedHash = crypto
+      .createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+
+    if (computedHash !== hash) {
+      throw new UnauthorizedException('Invalid Telegram auth data');
+    }
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────
 
   private async issueTokens(userId: string, deviceInfo?: string) {
@@ -195,14 +249,14 @@ export class AuthService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(
-        { sub: userId },
+        { sub: userId, jti: crypto.randomUUID() },
         {
           secret: this.config.get<string>('JWT_ACCESS_SECRET'),
           expiresIn: accessExpiresIn as any,
         },
       ),
       this.jwt.signAsync(
-        { sub: userId },
+        { sub: userId, jti: crypto.randomUUID() },
         {
           secret: this.config.get<string>('JWT_REFRESH_SECRET'),
           expiresIn: refreshExpiresIn as any,
@@ -229,7 +283,10 @@ export class AuthService {
       .toLowerCase()
       .replace(/[^a-z0-9_]/g, '_')
       .slice(0, 40);
+    return this.generateUniqueUsername(base);
+  }
 
+  private async generateUniqueUsername(base: string): Promise<string> {
     let candidate = base;
     let exists = await this.repo.findUserByUsername(candidate);
     while (exists) {
