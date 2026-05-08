@@ -21,4 +21,4 @@ jobs:
             git pull origin development
             npm install --production=false
             npm run build
-            pm2 restart besdong-api
+            sudo pm2 restart besdong-api
