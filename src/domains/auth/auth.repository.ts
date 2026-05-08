@@ -80,18 +80,19 @@ export class AuthRepository {
     display_name: string;
     provider: string;
     provider_user_id: string;
-    email: string;
+    email?: string | null;
+    avatar_url?: string;
   }) {
     return this.db.knex.transaction(async (trx) => {
       const [user] = await trx('users')
-        .insert({ username: data.username, display_name: data.display_name })
+        .insert({ username: data.username, display_name: data.display_name, avatar_url: data.avatar_url })
         .returning('*');
 
       await trx('user_identities').insert({
         user_id: user.id,
         provider: data.provider,
         provider_user_id: data.provider_user_id,
-        email: data.email,
+        email: data.email ?? null,
       });
 
       await trx('user_settings').insert({ user_id: user.id });
