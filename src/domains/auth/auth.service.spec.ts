@@ -6,6 +6,7 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { AuthService } from './auth.service';
 import { AuthRepository } from './auth.repository';
+import { FirebaseService } from '../../infrastructure/firebase/firebase.service';
 
 const mockUser = {
   id: 'user-uuid-1',
@@ -51,6 +52,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let repo: jest.Mocked<AuthRepository>;
   let jwtService: jest.Mocked<JwtService>;
+  let firebaseMock: { auth: { verifyIdToken: jest.Mock } };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -90,13 +92,14 @@ describe('AuthService', () => {
                 JWT_REFRESH_SECRET: 'test-refresh-secret',
                 JWT_ACCESS_EXPIRES_IN: '15m',
                 JWT_REFRESH_EXPIRES_IN: '30d',
-                GOOGLE_CLIENT_ID: 'test-google-client-id',
-                APPLE_CLIENT_ID: 'com.test.app',
-                FACEBOOK_APP_ID: 'test-facebook-app-id',
               };
               return map[key] ?? fallback;
             }),
           },
+        },
+        {
+          provide: FirebaseService,
+          useValue: { auth: { verifyIdToken: jest.fn() } },
         },
       ],
     }).compile();
@@ -104,6 +107,7 @@ describe('AuthService', () => {
     service = module.get(AuthService);
     repo = module.get(AuthRepository);
     jwtService = module.get(JwtService);
+    firebaseMock = module.get(FirebaseService) as any;
 
     jwtService.signAsync.mockResolvedValue('mock-token');
     repo.createAuthToken.mockResolvedValue(mockAuthToken);
@@ -269,24 +273,21 @@ describe('AuthService', () => {
   // ── OAuth Login ───────────────────────────────────────────────────────────
 
   describe('oauthLogin', () => {
-    const googleProfile = {
-      provider_user_id: 'google-sub-123',
+    const decodedGoogleToken = {
+      uid: 'google-sub-123',
       email: 'oauth@gmail.com',
-      display_name: 'OAuth User',
+      name: 'OAuth User',
+      firebase: { sign_in_provider: 'google.com' },
     };
 
     beforeEach(() => {
-      jest.spyOn(service as any, 'verifyGoogleToken').mockResolvedValue(googleProfile);
-      jest.spyOn(service as any, 'verifyFacebookToken').mockResolvedValue(googleProfile);
-      jest
-        .spyOn(service as any, 'verifyAppleToken')
-        .mockResolvedValue({ ...googleProfile, display_name: undefined });
+      firebaseMock.auth.verifyIdToken.mockResolvedValue(decodedGoogleToken);
     });
 
     it('returns tokens immediately for known provider_user_id', async () => {
       repo.findIdentityByProviderId.mockResolvedValue(mockOAuthIdentity);
 
-      const result = await service.oauthLogin({ provider: 'google', token: 'id-token' });
+      const result = await service.oauthLogin({ token: 'firebase-token' });
 
       expect(result).toEqual({ access_token: 'mock-token', refresh_token: 'mock-token' });
       expect(repo.createOAuthUser).not.toHaveBeenCalled();
@@ -297,7 +298,7 @@ describe('AuthService', () => {
       repo.findIdentityByEmail.mockResolvedValue({ ...mockOAuthIdentity, provider_user_id: null });
       repo.updateProviderUserId.mockResolvedValue(1);
 
-      await service.oauthLogin({ provider: 'google', token: 'id-token' });
+      await service.oauthLogin({ token: 'firebase-token' });
 
       expect(repo.updateProviderUserId).toHaveBeenCalledWith(
         mockOAuthIdentity.id,
@@ -306,13 +307,13 @@ describe('AuthService', () => {
       expect(repo.createOAuthUser).not.toHaveBeenCalled();
     });
 
-    it('creates a new user in a transaction when no identity exists', async () => {
+    it('creates a new user when no identity exists', async () => {
       repo.findIdentityByProviderId.mockResolvedValue(null);
       repo.findIdentityByEmail.mockResolvedValue(null);
       repo.findUserByUsername.mockResolvedValue(null);
       repo.createOAuthUser.mockResolvedValue(mockUser);
 
-      const result = await service.oauthLogin({ provider: 'google', token: 'id-token' });
+      const result = await service.oauthLogin({ token: 'firebase-token' });
 
       expect(repo.createOAuthUser).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -324,31 +325,35 @@ describe('AuthService', () => {
       expect(result).toEqual({ access_token: 'mock-token', refresh_token: 'mock-token' });
     });
 
-    it('falls back to username as display_name when Apple returns no name', async () => {
+    it('falls back to username as display_name when provider returns no name', async () => {
+      firebaseMock.auth.verifyIdToken.mockResolvedValue({
+        ...decodedGoogleToken,
+        name: undefined,
+        firebase: { sign_in_provider: 'apple.com' },
+      });
       repo.findIdentityByProviderId.mockResolvedValue(null);
       repo.findIdentityByEmail.mockResolvedValue(null);
       repo.findUserByUsername.mockResolvedValue(null);
       repo.createOAuthUser.mockResolvedValue(mockUser);
 
-      await service.oauthLogin({ provider: 'apple', token: 'apple-token' });
+      await service.oauthLogin({ token: 'apple-firebase-token' });
 
       const call = repo.createOAuthUser.mock.calls[0][0];
       expect(call.display_name).toBe(call.username);
     });
 
     it('handles Apple relay email as opaque identifier', async () => {
-      const relayProfile = {
-        provider_user_id: 'apple-sub-999',
+      firebaseMock.auth.verifyIdToken.mockResolvedValue({
+        uid: 'apple-sub-999',
         email: 'relay@privaterelay.appleid.com',
-        display_name: undefined,
-      };
-      jest.spyOn(service as any, 'verifyAppleToken').mockResolvedValue(relayProfile);
+        firebase: { sign_in_provider: 'apple.com' },
+      });
       repo.findIdentityByProviderId.mockResolvedValue(null);
       repo.findIdentityByEmail.mockResolvedValue(null);
       repo.findUserByUsername.mockResolvedValue(null);
       repo.createOAuthUser.mockResolvedValue(mockUser);
 
-      const result = await service.oauthLogin({ provider: 'apple', token: 'apple-token' });
+      const result = await service.oauthLogin({ token: 'apple-firebase-token' });
 
       expect(repo.createOAuthUser).toHaveBeenCalledWith(
         expect.objectContaining({ email: 'relay@privaterelay.appleid.com' }),
@@ -356,33 +361,43 @@ describe('AuthService', () => {
       expect(result).toEqual({ access_token: 'mock-token', refresh_token: 'mock-token' });
     });
 
-    it('throws UnauthorizedException on expired Google token', async () => {
-      jest
-        .spyOn(service as any, 'verifyGoogleToken')
-        .mockRejectedValue(new UnauthorizedException('Invalid Google token'));
+    it('throws UnauthorizedException on invalid or expired Firebase token', async () => {
+      firebaseMock.auth.verifyIdToken.mockRejectedValue(new Error('Firebase ID token has expired'));
 
-      await expect(
-        service.oauthLogin({ provider: 'google', token: 'expired-token' }),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.oauthLogin({ token: 'expired-token' })).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
-    it('throws UnauthorizedException on invalid Facebook app ID', async () => {
-      jest
-        .spyOn(service as any, 'verifyFacebookToken')
-        .mockRejectedValue(new UnauthorizedException('Invalid Facebook token'));
+    it('throws UnauthorizedException for unsupported sign-in provider', async () => {
+      firebaseMock.auth.verifyIdToken.mockResolvedValue({
+        ...decodedGoogleToken,
+        firebase: { sign_in_provider: 'password' },
+      });
 
-      await expect(
-        service.oauthLogin({ provider: 'facebook', token: 'other-app-token' }),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.oauthLogin({ token: 'password-token' })).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
-    it('rolls back transaction when createOAuthUser throws', async () => {
+    it('throws UnauthorizedException when Firebase token has no email', async () => {
+      firebaseMock.auth.verifyIdToken.mockResolvedValue({
+        ...decodedGoogleToken,
+        email: undefined,
+      });
+
+      await expect(service.oauthLogin({ token: 'no-email-token' })).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('rolls back when createOAuthUser throws mid-transaction', async () => {
       repo.findIdentityByProviderId.mockResolvedValue(null);
       repo.findIdentityByEmail.mockResolvedValue(null);
       repo.findUserByUsername.mockResolvedValue(null);
       repo.createOAuthUser.mockRejectedValue(new Error('DB constraint violation'));
 
-      await expect(service.oauthLogin({ provider: 'google', token: 'id-token' })).rejects.toThrow(
+      await expect(service.oauthLogin({ token: 'firebase-token' })).rejects.toThrow(
         'DB constraint violation',
       );
       expect(repo.createAuthToken).not.toHaveBeenCalled();

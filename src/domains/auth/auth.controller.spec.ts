@@ -223,50 +223,26 @@ describe('AuthController', () => {
   // ── POST /api/v1/auth/oauth ───────────────────────────────────────────────
 
   describe('POST /api/v1/auth/oauth', () => {
-    it('returns 201 with tokens on valid Google payload', async () => {
+    it('returns 201 with tokens on valid Firebase token', async () => {
       mockAuthService.oauthLogin.mockResolvedValue(mockTokens);
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/oauth')
-        .send({ provider: 'google', token: 'google-id-token' });
+        .send({ token: 'firebase-id-token' });
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toEqual(mockTokens);
     });
 
-    it('returns 201 with tokens on valid Facebook payload', async () => {
-      mockAuthService.oauthLogin.mockResolvedValue(mockTokens);
-
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/auth/oauth')
-        .send({ provider: 'facebook', token: 'fb-access-token' });
-
-      expect(res.status).toBe(201);
-    });
-
-    it('returns 201 with tokens on valid Apple payload', async () => {
-      mockAuthService.oauthLogin.mockResolvedValue(mockTokens);
-
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/auth/oauth')
-        .send({ provider: 'apple', token: 'apple-id-token' });
-
-      expect(res.status).toBe(201);
-    });
-
-    it('returns 400 when provider is not a supported value', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/auth/oauth')
-        .send({ provider: 'twitter', token: 'some-token' });
+    it('returns 400 when token is missing', async () => {
+      const res = await request(app.getHttpServer()).post('/api/v1/auth/oauth').send({});
 
       expect(res.status).toBe(400);
     });
 
-    it('returns 400 when token is missing', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/auth/oauth')
-        .send({ provider: 'google' });
+    it('returns 400 when token is empty string', async () => {
+      const res = await request(app.getHttpServer()).post('/api/v1/auth/oauth').send({ token: '' });
 
       expect(res.status).toBe(400);
     });
