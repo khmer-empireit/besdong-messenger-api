@@ -1,5 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsNumber, IsString, validateSync } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, validateSync } from 'class-validator';
 
 enum Environment {
   Development = 'development',
@@ -55,6 +55,42 @@ class EnvironmentVariables {
 
   @IsString()
   TELEGRAM_BOT_TOKEN: string;
+
+  // Storage
+  @IsString()
+  STORAGE_DRIVER: string = 'local';
+
+  @IsString()
+  @IsOptional()
+  STORAGE_LOCAL_PATH: string = './uploads';
+
+  @IsString()
+  @IsOptional()
+  STORAGE_PUBLIC_URL: string;
+
+  @IsString()
+  @IsOptional()
+  STORAGE_ENDPOINT: string;
+
+  @IsString()
+  @IsOptional()
+  STORAGE_REGION: string;
+
+  @IsString()
+  @IsOptional()
+  STORAGE_ACCESS_KEY: string;
+
+  @IsString()
+  @IsOptional()
+  STORAGE_SECRET_KEY: string;
+
+  @IsString()
+  @IsOptional()
+  STORAGE_BUCKET: string;
+
+  @IsString()
+  @IsOptional()
+  STORAGE_CDN_URL: string;
 }
 
 export function validate(config: Record<string, unknown>) {

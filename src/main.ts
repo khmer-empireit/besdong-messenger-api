@@ -2,13 +2,18 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import * as path from 'path';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import { ResponseInterceptor } from './shared/interceptors/response.interceptor';
 import helmet from 'helmet';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Serve local uploads as static files at /uploads/*
+  app.useStaticAssets(path.resolve('./uploads'), { prefix: '/uploads' });
 
   // `helmet()` can enable CSP/HSTS headers that force browsers to upgrade `http://` requests
   // to `https://` (breaking local Swagger assets when you run the server without TLS).
