@@ -1,0 +1,10 @@
+import { UserProfile } from '../entities/user-profile.entity';
+import { UserSettings } from '../entities/user-settings.entity';
+
+export interface IUserRepository {
+  findById(id: string): Promise<UserProfile | undefined>;
+  updateProfile(id: string, data: Partial<Pick<UserProfile, 'display_name' | 'avatar_url'>>): Promise<UserProfile>;
+  search(query: string): Promise<UserProfile[]>;
+  getSettings(userId: string): Promise<UserSettings | undefined>;
+  updateSettings(userId: string, data: Partial<Omit<UserSettings, 'user_id' | 'created_at' | 'updated_at'>>): Promise<UserSettings>;
+}
