@@ -7,3 +7,5 @@ coverage/
 *-adminsdk-*.json
 google-services.json
 test-firebase-token.html
+uploads/*
+!uploads/.gitkeep

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, PayloadTooLargeException } from '@nestjs/common';
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 import * as crypto from 'crypto';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 
@@ -33,13 +33,13 @@ export class UploadService {
     this.validateMimeType(file);
     this.validateSize(file, mode);
 
-    const { buffer, info } = await this.process(file.buffer, type, mode);
+    const { data, info } = await this.process(file.buffer, type, mode);
     const key = this.buildKey(type, userId, info.format ?? 'webp');
     const mimeType = `image/${info.format ?? 'webp'}`;
 
-    const url = await this.storage.upload(buffer, key, mimeType);
+    const url = await this.storage.upload(data, key, mimeType);
 
-    return { url, size: buffer.length, width: info.width!, height: info.height!, format: info.format! };
+    return { url, size: data.length, width: info.width!, height: info.height!, format: info.format! };
   }
 
   private validateMimeType(file: Express.Multer.File) {
@@ -64,7 +64,7 @@ export class UploadService {
     const { width, height } = DIMENSIONS[type];
 
     if (mode === 'compressed') {
-      const result = await (sharp as any)(buffer)
+      const result = await sharp(buffer)
         .resize(width, height, { fit: 'cover', position: 'center', withoutEnlargement: true })
         .webp({ quality: 85 })
         .toBuffer({ resolveWithObject: true });
@@ -72,7 +72,7 @@ export class UploadService {
     }
 
     // Original mode — just decode to validate it's a real image, keep format
-    const result = await (sharp as any)(buffer)
+    const result = await sharp(buffer)
       .toBuffer({ resolveWithObject: true });
     return result;
   }
@@ -80,6 +80,7 @@ export class UploadService {
   private buildKey(type: UploadType, userId: string, ext: string): string {
     const timestamp = Date.now();
     const random = crypto.randomBytes(6).toString('hex');
-    return `${type}s/${userId}/${timestamp}-${random}.${ext}`;
+    const folder = type === 'story' ? 'stories' : `${type}s`;
+    return `${folder}/${userId}/${timestamp}-${random}.${ext}`;
   }
 }
