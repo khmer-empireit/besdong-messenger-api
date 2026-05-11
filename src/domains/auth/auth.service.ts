@@ -332,6 +332,7 @@ export class AuthService {
       };
     } catch (e) {
       if (e instanceof UnauthorizedException) throw e;
+      console.error('[verifyFirebaseToken] error:', e);
       throw new UnauthorizedException('Invalid Firebase token');
     }
   }
