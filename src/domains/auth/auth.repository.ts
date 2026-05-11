@@ -7,7 +7,7 @@ export class AuthRepository {
 
   // ── Users ──────────────────────────────────────────────────────────────
 
-  async createUser(data: { username: string; display_name: string; phone?: string }) {
+  async createUser(data: { username: string; display_name: string; bd_number?: string }) {
     const [user] = await this.db.knex('users').insert(data).returning('*');
     return user;
   }

@@ -23,10 +23,10 @@ export class UpdateSettingsDto {
   @IsIn(['everyone', 'contacts', 'nobody'])
   profile_photo_visibility?: 'everyone' | 'contacts' | 'nobody';
 
-  @ApiPropertyOptional({ enum: ['everyone', 'contacts', 'nobody'], description: 'Who can see your phone number' })
+  @ApiPropertyOptional({ enum: ['everyone', 'contacts', 'nobody'], description: 'Who can see your BD number' })
   @IsOptional()
   @IsIn(['everyone', 'contacts', 'nobody'])
-  phone_number_visibility?: 'everyone' | 'contacts' | 'nobody';
+  bd_number_visibility?: 'everyone' | 'contacts' | 'nobody';
 
   @ApiPropertyOptional({ enum: ['everyone', 'contacts', 'nobody'], description: 'Who can add you to groups' })
   @IsOptional()

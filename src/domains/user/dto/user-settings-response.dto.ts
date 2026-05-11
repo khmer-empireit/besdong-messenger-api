@@ -20,7 +20,7 @@ class UserSettingsData {
   profile_photo_visibility: string;
 
   @ApiProperty({ enum: ['everyone', 'contacts', 'nobody'], example: 'contacts' })
-  phone_number_visibility: string;
+  bd_number_visibility: string;
 
   @ApiProperty({ enum: ['everyone', 'contacts', 'nobody'], example: 'everyone' })
   groups_add_permission: string;

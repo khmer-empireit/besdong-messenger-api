@@ -12,9 +12,23 @@ export class UserRepository implements IUserRepository {
     return this.db.knex('users').where({ id }).first() as Promise<UserProfile | undefined>;
   }
 
+  async findByIdentifier(identifier: string): Promise<UserProfile | undefined> {
+    const user = await this.db
+      .knex('users')
+      .where('username', identifier)
+      .orWhere('email', identifier)
+      .orWhere('bd_number', identifier)
+      .first();
+    if (user) return user as UserProfile;
+
+    const identity = await this.db.knex('user_identities').where('email', identifier).first();
+    if (!identity) return undefined;
+    return this.db.knex('users').where({ id: identity.user_id }).first() as Promise<UserProfile | undefined>;
+  }
+
   async updateProfile(
     id: string,
-    data: Partial<Pick<UserProfile, 'display_name' | 'avatar_url' | 'bio' | 'dob'>>,
+    data: Partial<Pick<UserProfile, 'bd_number' | 'display_name' | 'avatar_url' | 'bio' | 'dob'>>,
   ): Promise<UserProfile> {
     const [user] = await this.db.knex('users').where({ id }).update(data).returning('*');
     return user as UserProfile;
