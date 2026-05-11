@@ -5,6 +5,23 @@ import { DbService } from '../../infrastructure/database/db.service';
 export class AuthRepository {
   constructor(private db: DbService) {}
 
+  // ── BD Number ──────────────────────────────────────────────────────────
+
+  async generateBdNumber(): Promise<string> {
+    while (true) {
+      const digits = Math.floor(10000000 + Math.random() * 90000000).toString();
+      const bdNumber = `BD${digits}`;
+
+      const takenByUser = await this.db.knex('users').where({ bd_number: bdNumber }).first();
+      if (takenByUser) continue;
+
+      const reserved = await this.db.knex('reserved_bd_numbers').where({ bd_number: bdNumber }).first();
+      if (reserved) continue;
+
+      return bdNumber;
+    }
+  }
+
   // ── Users ──────────────────────────────────────────────────────────────
 
   async createUser(data: { username: string; display_name: string; bd_number?: string }) {
@@ -26,9 +43,11 @@ export class AuthRepository {
     email: string;
     password_hash: string;
   }) {
+    const bdNumber = await this.generateBdNumber();
+
     return this.db.knex.transaction(async (trx) => {
       const [user] = await trx('users')
-        .insert({ username: data.username, display_name: data.display_name })
+        .insert({ username: data.username, display_name: data.display_name, bd_number: bdNumber })
         .returning('*');
 
       await trx('user_identities').insert({
@@ -83,9 +102,11 @@ export class AuthRepository {
     email?: string | null;
     avatar_url?: string;
   }) {
+    const bdNumber = await this.generateBdNumber();
+
     return this.db.knex.transaction(async (trx) => {
       const [user] = await trx('users')
-        .insert({ username: data.username, display_name: data.display_name, avatar_url: data.avatar_url })
+        .insert({ username: data.username, display_name: data.display_name, avatar_url: data.avatar_url, bd_number: bdNumber })
         .returning('*');
 
       await trx('user_identities').insert({

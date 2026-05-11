@@ -1,6 +1,6 @@
 import { Contact } from '../entities/contact.entity';
 
-export interface ContactWithProfile extends Contact {
+export interface ContactWithProfile extends Omit<Contact, 'owner_id' | 'contact_id'> {
   contact: {
     id: string;
     username: string;

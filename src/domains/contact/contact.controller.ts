@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Post,
   Query,
@@ -14,7 +15,6 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
-  ApiExcludeController,
   ApiOperation,
   ApiQuery,
   ApiResponse,
@@ -30,7 +30,6 @@ import {
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 
-@ApiExcludeController()
 @ApiTags('Contacts')
 @ApiBearerAuth()
 @UseGuards(JwtGuard)
@@ -41,15 +40,26 @@ export class ContactController {
 
   @Get('find')
   @ApiOperation({
-    summary: 'Find a user by username, email, or BD number',
-    description: 'Exact match search. Used to preview a user before adding them.',
+    summary: 'Find users by name or BD number',
+    description: 'type=name: partial match on username and display name (up to 20 results). type=bd_number: exact match on BD number (1 result).',
   })
-  @ApiQuery({ name: 'q', required: true, description: 'Username, email, or BD number' })
+  @ApiQuery({ name: 'q', required: true, description: 'Search query' })
+  @ApiQuery({ name: 'type', required: false, enum: ['name', 'bd_number'], description: 'Search type (default: name)' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Results per page (default: 20, max: 50)' })
   @ApiResponse({ status: 200, type: FindUserResponseDto })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async findUser(@Query('q') q: string) {
+  async findUser(
+    @Query('q') q: string,
+    @Query('type') type: 'name' | 'bd_number' = 'name',
+    @Query('page', new ParseIntPipe({ optional: true })) page = 1,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit = 20,
+  ) {
     if (!q?.trim()) throw new BadRequestException('Query is required');
-    return this.contactService.findUserByIdentifier(q);
+    if (type !== 'name' && type !== 'bd_number') throw new BadRequestException('type must be name or bd_number');
+    const safeLimit = Math.min(Math.max(limit, 1), 50);
+    const safePage = Math.max(page, 1);
+    return this.contactService.findUsers(q.trim(), type, safePage, safeLimit);
   }
 
   @Get()

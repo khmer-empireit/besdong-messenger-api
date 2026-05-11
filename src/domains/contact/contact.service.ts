@@ -14,11 +14,19 @@ export class ContactService {
     private userRepo: UserRepository,
   ) {}
 
-  async findUserByIdentifier(identifier: string) {
-    const user = await this.userRepo.findByIdentifier(identifier);
-    if (!user) throw new NotFoundException('User not found');
-    const { id, username, display_name, bd_number, avatar_url, bio, is_online, last_seen_at } = user;
-    return { id, username, display_name, bd_number, avatar_url, bio, is_online, last_seen_at };
+  async findUsers(query: string, type: 'name' | 'bd_number', page = 1, limit = 20) {
+    const isBdNumber = /^BD\d+$/i.test(query.trim());
+    const resolvedType = isBdNumber ? 'bd_number' : type;
+
+    const offset = (page - 1) * limit;
+    const users = resolvedType === 'bd_number'
+      ? await this.userRepo.findByBdNumber(query.trim().toUpperCase())
+      : await this.userRepo.findByName(query, limit, offset);
+
+    if (!users.length) throw new NotFoundException('User not found');
+    return users.map(({ id, username, display_name, bd_number, avatar_url, bio, is_online, last_seen_at }) => ({
+      id, username, display_name, bd_number, avatar_url, bio, is_online, last_seen_at,
+    }));
   }
 
   async listContacts(ownerId: string) {
