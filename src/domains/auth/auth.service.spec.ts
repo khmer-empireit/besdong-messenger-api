@@ -74,6 +74,7 @@ describe('AuthService', () => {
             upsertOtpCode: jest.fn(),
             findActiveOtp: jest.fn(),
             markOtpUsed: jest.fn(),
+            isAuthMethodEnabled: jest.fn(),
           },
         },
         {
@@ -111,6 +112,7 @@ describe('AuthService', () => {
 
     jwtService.signAsync.mockResolvedValue('mock-token');
     repo.createAuthToken.mockResolvedValue(mockAuthToken);
+    repo.isAuthMethodEnabled.mockResolvedValue(true);
   });
 
   // ── Register ─────────────────────────────────────────────────────────────

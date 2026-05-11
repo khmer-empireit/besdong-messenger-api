@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -30,6 +31,10 @@ export class AuthService {
   // ── Register ───────────────────────────────────────────────────────────
 
   async register(dto: RegisterDto, deviceInfo?: string) {
+    if (!(await this.repo.isAuthMethodEnabled('local'))) {
+      throw new ForbiddenException('Email/password registration is currently disabled');
+    }
+
     const existing = await this.repo.findIdentityByEmail(dto.email, 'local');
     if (existing) throw new ConflictException('Email already registered');
 
@@ -49,6 +54,10 @@ export class AuthService {
   // ── Login ──────────────────────────────────────────────────────────────
 
   async login(dto: LoginDto, deviceInfo?: string) {
+    if (!(await this.repo.isAuthMethodEnabled('local'))) {
+      throw new ForbiddenException('Email/password login is currently disabled');
+    }
+
     const identity = await this.repo.findIdentityByEmail(dto.email, 'local');
     if (!identity) throw new UnauthorizedException('Invalid credentials');
 
@@ -96,6 +105,10 @@ export class AuthService {
   // ── Forgot Password ────────────────────────────────────────────────────
 
   async forgotPassword(dto: ForgotPasswordDto) {
+    if (!(await this.repo.isAuthMethodEnabled('local'))) {
+      throw new ForbiddenException('Email/password login is currently disabled');
+    }
+
     const identity = await this.repo.findIdentityByEmail(dto.email, 'local');
     if (!identity) return { message: 'OTP has been sent to your email' };
 
@@ -142,6 +155,10 @@ export class AuthService {
   // ── Reset Password ─────────────────────────────────────────────────────
 
   async resetPassword(dto: ResetPasswordDto) {
+    if (!(await this.repo.isAuthMethodEnabled('local'))) {
+      throw new ForbiddenException('Email/password login is currently disabled');
+    }
+
     const identity = await this.repo.findIdentityByEmail(dto.email, 'local');
     if (!identity) throw new BadRequestException('Invalid request');
 
@@ -163,6 +180,10 @@ export class AuthService {
 
   async oauthLogin(dto: OAuthDto, deviceInfo?: string) {
     const profile = await this.verifyFirebaseToken(dto.token);
+
+    if (!(await this.repo.isAuthMethodEnabled(profile.provider))) {
+      throw new ForbiddenException(`${profile.provider} login is currently disabled`);
+    }
 
     const byProviderId = await this.repo.findIdentityByProviderId(
       profile.provider,
@@ -191,6 +212,10 @@ export class AuthService {
   // ── Telegram ───────────────────────────────────────────────────────────
 
   async telegramLogin(dto: TelegramAuthDto, deviceInfo?: string) {
+    if (!(await this.repo.isAuthMethodEnabled('telegram'))) {
+      throw new ForbiddenException('Telegram login is currently disabled');
+    }
+
     this.verifyTelegramAuth(dto);
 
     const providerUserId = String(dto.id);

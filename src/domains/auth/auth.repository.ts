@@ -174,4 +174,11 @@ export class AuthRepository {
       .returning('*');
     return settings;
   }
+
+  // ── Auth Config ────────────────────────────────────────────────────────
+
+  async isAuthMethodEnabled(method: string): Promise<boolean> {
+    const config = await this.db.knex('auth_config').where({ method }).first();
+    return config?.is_enabled ?? true;
+  }
 }
