@@ -10,6 +10,7 @@ import { UserModule } from './domains/user/user.module';
 import { ConversationModule } from './domains/conversation/conversation.module';
 import { MessageModule } from './domains/message/message.module';
 import { ContactModule } from './domains/contact/contact.module';
+import { AdminModule } from './domains/admin/admin.module';
 import { validate } from './infrastructure/config/env.validation';
 
 @Module({
@@ -28,6 +29,7 @@ import { validate } from './infrastructure/config/env.validation';
     ConversationModule,
     MessageModule,
     ContactModule,
+    AdminModule,
   ],
 })
 export class AppModule {}
