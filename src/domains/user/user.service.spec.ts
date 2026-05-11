@@ -7,8 +7,14 @@ const mockUser = {
   id: 'user-uuid-1',
   username: 'testuser',
   display_name: 'Test User',
+  email: null,
+  bd_number: null,
   avatar_url: null,
-  phone: null,
+  bio: null,
+  dob: null,
+  role: 'user' as const,
+  is_active: true,
+  is_verified: false,
   is_online: false,
   last_seen_at: null,
   created_at: new Date('2026-01-01'),
@@ -22,10 +28,21 @@ const mockSettings = {
   language: 'en',
   last_seen_visibility: 'everyone' as const,
   profile_photo_visibility: 'everyone' as const,
+  bd_number_visibility: 'contacts' as const,
   read_receipts_enabled: true,
   online_status_visible: true,
   notifications_enabled: true,
   message_previews_enabled: true,
+  groups_add_permission: 'everyone' as const,
+  chat_wallpaper_type: 'none' as const,
+  chat_wallpaper_value: null,
+  font_size: 'medium' as const,
+  do_not_disturb: false,
+  notify_messages: true,
+  notify_groups: true,
+  notify_calls: true,
+  auto_download_wifi: true,
+  auto_download_cellular: false,
   created_at: new Date('2026-01-01'),
   updated_at: new Date('2026-01-01'),
 };
@@ -42,6 +59,7 @@ describe('UserService', () => {
           provide: UserRepository,
           useValue: {
             findById: jest.fn(),
+            findByIdentifier: jest.fn(),
             updateProfile: jest.fn(),
             search: jest.fn(),
             getSettings: jest.fn(),
@@ -170,10 +188,11 @@ describe('UserService', () => {
         username: mockUser.username,
         display_name: mockUser.display_name,
         avatar_url: mockUser.avatar_url,
+        bio: mockUser.bio,
         is_online: mockUser.is_online,
         last_seen_at: mockUser.last_seen_at,
       });
-      expect(result).not.toHaveProperty('phone');
+      expect(result).not.toHaveProperty('bd_number');
     });
 
     it('throws NotFoundException when user does not exist', async () => {

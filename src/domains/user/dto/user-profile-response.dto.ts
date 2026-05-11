@@ -13,8 +13,8 @@ class UserProfileData {
   @ApiPropertyOptional({ example: 'sokheng@example.com', nullable: true })
   email: string | null;
 
-  @ApiPropertyOptional({ example: '+85512345678', nullable: true })
-  phone: string | null;
+  @ApiPropertyOptional({ example: 'BD0001234', nullable: true })
+  bd_number: string | null;
 
   @ApiPropertyOptional({ example: 'https://cdn.example.com/avatar.webp', nullable: true })
   avatar_url: string | null;

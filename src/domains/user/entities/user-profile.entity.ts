@@ -3,7 +3,7 @@ export interface UserProfile {
   username: string;
   display_name: string;
   email: string | null;
-  phone: string | null;
+  bd_number: string | null;
   avatar_url: string | null;
   bio: string | null;
   dob: string | null;

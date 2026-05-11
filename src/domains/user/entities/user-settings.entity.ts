@@ -5,7 +5,7 @@ export interface UserSettings {
   language: string;
   last_seen_visibility: 'everyone' | 'contacts' | 'nobody';
   profile_photo_visibility: 'everyone' | 'contacts' | 'nobody';
-  phone_number_visibility: 'everyone' | 'contacts' | 'nobody';
+  bd_number_visibility: 'everyone' | 'contacts' | 'nobody';
   read_receipts_enabled: boolean;
   online_status_visible: boolean;
   notifications_enabled: boolean;

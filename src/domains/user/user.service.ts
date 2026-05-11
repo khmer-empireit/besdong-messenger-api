@@ -31,6 +31,10 @@ export class UserService {
     return this.repo.updateSettings(userId, dto);
   }
 
+  async findByIdentifier(identifier: string) {
+    return this.repo.findByIdentifier(identifier.trim());
+  }
+
   async search(query: string) {
     return this.repo.search(query.trim());
   }
