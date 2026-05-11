@@ -11,7 +11,7 @@ export class UpdateProfileDto {
 
   @ApiPropertyOptional({ example: 'https://cdn.example.com/avatar.webp' })
   @IsOptional()
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   @MaxLength(500)
   avatar_url?: string;
 
