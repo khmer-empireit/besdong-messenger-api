@@ -28,8 +28,6 @@ export class ContactRepository implements IContactRepository {
 
     return rows.map((row) => ({
       id: row.id,
-      owner_id: row.owner_id,
-      contact_id: row.contact_id,
       created_at: row.created_at,
       contact: {
         id: row.user_id,

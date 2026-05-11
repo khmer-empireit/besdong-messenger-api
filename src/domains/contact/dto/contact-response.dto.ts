@@ -80,6 +80,6 @@ export class FindUserResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
 
-  @ApiProperty({ type: FoundUserData })
-  data: FoundUserData;
+  @ApiProperty({ type: [FoundUserData] })
+  data: FoundUserData[];
 }

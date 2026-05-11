@@ -12,18 +12,23 @@ export class UserRepository implements IUserRepository {
     return this.db.knex('users').where({ id }).first() as Promise<UserProfile | undefined>;
   }
 
-  async findByIdentifier(identifier: string): Promise<UserProfile | undefined> {
-    const user = await this.db
+  async findByName(query: string, limit = 20, offset = 0): Promise<UserProfile[]> {
+    return this.db
       .knex('users')
-      .where('username', identifier)
-      .orWhere('email', identifier)
-      .orWhere('bd_number', identifier)
-      .first();
-    if (user) return user as UserProfile;
+      .where('username', 'ilike', `%${query}%`)
+      .orWhere('display_name', 'ilike', `%${query}%`)
+      .orderBy('username', 'asc')
+      .limit(limit)
+      .offset(offset) as Promise<UserProfile[]>;
+  }
 
-    const identity = await this.db.knex('user_identities').where('email', identifier).first();
-    if (!identity) return undefined;
-    return this.db.knex('users').where({ id: identity.user_id }).first() as Promise<UserProfile | undefined>;
+  async findByBdNumber(bdNumber: string): Promise<UserProfile[]> {
+    const user = await this.db.knex('users').where({ bd_number: bdNumber }).first();
+    return user ? [user as UserProfile] : [];
+  }
+
+  async findByIdentifier(identifier: string): Promise<UserProfile[]> {
+    return this.findByName(identifier);
   }
 
   async updateProfile(
