@@ -1,6 +1,11 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import knex, { Knex } from 'knex';
+import pg from 'pg';
+
+// Prevent pg from converting DATE columns to JS Date objects (which shifts timezone).
+// Returns raw YYYY-MM-DD string instead.
+pg.types.setTypeParser(pg.types.builtins.DATE, (val: string) => val);
 
 @Injectable()
 export class DbService implements OnModuleDestroy {

@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiExcludeController, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConversationService } from './conversation.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
@@ -10,6 +10,7 @@ import { MessageResponseDto } from '../auth/dto/message-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 
+@ApiExcludeController()
 @ApiTags('Conversations')
 @ApiBearerAuth()
 @UseGuards(JwtGuard)

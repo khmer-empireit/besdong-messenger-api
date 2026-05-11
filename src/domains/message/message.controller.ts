@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiExcludeController, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MessageService } from './message.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
@@ -7,6 +7,7 @@ import { MessageResponseDto, MessageListResponseDto, MessageActionResponseDto } 
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 
+@ApiExcludeController()
 @ApiTags('Messages')
 @ApiBearerAuth()
 @UseGuards(JwtGuard)

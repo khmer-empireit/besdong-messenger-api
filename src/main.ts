@@ -15,7 +15,9 @@ async function bootstrap() {
 
   app.use((req: any, res: any, next: any) => {
     res.on('finish', () => {
-      logger.log(`${req.method} ${req.originalUrl} ${res.statusCode}`);
+      if (res.statusCode >= 500) {
+        logger.error(`${req.method} ${req.originalUrl} ${res.statusCode}`);
+      }
     });
     next();
   });
