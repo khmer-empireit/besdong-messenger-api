@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiExcludeController,
   ApiOperation,
   ApiQuery,
   ApiResponse,
@@ -29,6 +30,7 @@ import {
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 
+@ApiExcludeController()
 @ApiTags('Contacts')
 @ApiBearerAuth()
 @UseGuards(JwtGuard)
