@@ -42,7 +42,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimitGuard)
-  @RateLimit(5, 15 * 60)
+  @RateLimit(100, 15 * 60)
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiResponse({
     status: 200,

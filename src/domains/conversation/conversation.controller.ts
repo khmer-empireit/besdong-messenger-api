@@ -4,6 +4,7 @@ import { ConversationService } from './conversation.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { AddMembersDto } from './dto/add-members.dto';
+import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { MuteConversationDto } from './dto/mute-conversation.dto';
 import { ConversationResponseDto, ConversationDetailResponseDto, ConversationListResponseDto } from './dto/conversation-response.dto';
 import { MessageResponseDto } from '../auth/dto/message-response.dto';
@@ -87,6 +88,21 @@ export class ConversationController {
     @Body() dto: AddMembersDto,
   ) {
     return this.conversationService.addMembers(id, user.sub, dto);
+  }
+
+  @Patch(':id/members/:userId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Promote or demote a member (owner only)' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Member not found' })
+  updateMemberRole(
+    @Param('id') id: string,
+    @Param('userId') targetUserId: string,
+    @CurrentUser() user: { sub: string },
+    @Body() dto: UpdateMemberRoleDto,
+  ) {
+    return this.conversationService.updateMemberRole(id, user.sub, targetUserId, dto);
   }
 
   @Delete(':id/members/:userId')
