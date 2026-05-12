@@ -6,7 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
+  Matches,
   Min,
   MinLength,
   ValidateIf,
@@ -72,6 +72,6 @@ export class SendMessageDto {
 
   @ApiPropertyOptional({ example: 'message-uuid' })
   @IsOptional()
-  @IsUUID('4')
+  @Matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, { message: 'reply_to_id must be a valid UUID' })
   reply_to_id?: string;
 }
