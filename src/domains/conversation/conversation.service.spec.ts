@@ -65,6 +65,7 @@ describe('ConversationService', () => {
             removeParticipant: jest.fn(),
             getParticipant: jest.fn(),
             getParticipants: jest.fn(),
+            updateParticipantRole: jest.fn(),
             setMute: jest.fn(),
           },
         },
@@ -249,12 +250,52 @@ describe('ConversationService', () => {
     });
   });
 
+  // ── updateMemberRole ──────────────────────────────────────────────────────
+
+  describe('updateMemberRole', () => {
+    it('allows owner to promote a member to admin', async () => {
+      repo.findById.mockResolvedValue(mockConvGroup);
+      repo.getParticipant
+        .mockResolvedValueOnce(mockParticipantOwner)  // requester = owner
+        .mockResolvedValueOnce(mockParticipantMember); // target = member
+
+      const result = await service.updateMemberRole('conv-uuid-2', 'user-uuid-1', 'user-uuid-2', { role: 'admin' });
+
+      expect(result).toEqual({ message: 'Role updated' });
+      expect(repo.updateParticipantRole).toHaveBeenCalledWith('conv-uuid-2', 'user-uuid-2', 'admin');
+    });
+
+    it('throws ForbiddenException when non-owner tries to change role', async () => {
+      repo.findById.mockResolvedValue(mockConvGroup);
+      repo.getParticipant.mockResolvedValue(mockParticipantMember); // requester = member
+
+      await expect(service.updateMemberRole('conv-uuid-2', 'user-uuid-2', 'user-uuid-1', { role: 'member' })).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when trying to change owner role', async () => {
+      repo.findById.mockResolvedValue(mockConvGroup);
+      repo.getParticipant
+        .mockResolvedValueOnce(mockParticipantOwner)  // requester = owner
+        .mockResolvedValueOnce(mockParticipantOwner); // target = also owner
+
+      await expect(service.updateMemberRole('conv-uuid-2', 'user-uuid-1', 'user-uuid-1', { role: 'member' })).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws BadRequestException for direct conversation', async () => {
+      repo.findById.mockResolvedValue(mockConvDirect);
+
+      await expect(service.updateMemberRole('conv-uuid-1', 'user-uuid-1', 'user-uuid-2', { role: 'admin' })).rejects.toThrow(BadRequestException);
+    });
+  });
+
   // ── removeMember ──────────────────────────────────────────────────────────
 
   describe('removeMember', () => {
-    it('allows owner to remove another member', async () => {
+    it('allows owner to remove a member', async () => {
       repo.findById.mockResolvedValue(mockConvGroup);
-      repo.getParticipant.mockResolvedValue(mockParticipantOwner);
+      repo.getParticipant
+        .mockResolvedValueOnce(mockParticipantOwner)  // requester = owner
+        .mockResolvedValueOnce(mockParticipantMember); // target = member
 
       const result = await service.removeMember('conv-uuid-2', 'user-uuid-1', 'user-uuid-2');
 
@@ -269,6 +310,26 @@ describe('ConversationService', () => {
 
       expect(result).toEqual({ message: 'Member removed' });
       expect(repo.getParticipant).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when admin tries to kick another admin', async () => {
+      const mockParticipantAdmin = { ...mockParticipantMember, role: 'admin' as const };
+      repo.findById.mockResolvedValue(mockConvGroup);
+      repo.getParticipant
+        .mockResolvedValueOnce(mockParticipantAdmin)  // requester = admin
+        .mockResolvedValueOnce(mockParticipantAdmin); // target = also admin
+
+      await expect(service.removeMember('conv-uuid-2', 'user-uuid-2', 'user-uuid-3')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when admin tries to kick the owner', async () => {
+      const mockParticipantAdmin = { ...mockParticipantMember, role: 'admin' as const };
+      repo.findById.mockResolvedValue(mockConvGroup);
+      repo.getParticipant
+        .mockResolvedValueOnce(mockParticipantAdmin)  // requester = admin
+        .mockResolvedValueOnce(mockParticipantOwner); // target = owner
+
+      await expect(service.removeMember('conv-uuid-2', 'user-uuid-2', 'user-uuid-1')).rejects.toThrow(ForbiddenException);
     });
 
     it('throws BadRequestException for direct conversation', async () => {
