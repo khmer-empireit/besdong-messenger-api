@@ -39,10 +39,29 @@ export class UserService {
     return this.repo.search(query.trim());
   }
 
-  async getPublicProfile(userId: string) {
-    const user = await this.repo.findById(userId);
+  async getPublicProfile(targetUserId: string, requesterId: string) {
+    const user = await this.repo.findById(targetUserId);
     if (!user) throw new NotFoundException('User not found');
-    const { id, username, display_name, avatar_url, bio, is_online, last_seen_at } = user;
+
+    let { is_online, last_seen_at } = user;
+
+    if (requesterId !== targetUserId) {
+      const settings = await this.repo.getSettings(targetUserId);
+      const visibility = settings?.last_seen_visibility ?? 'everyone';
+
+      if (visibility === 'nobody') {
+        is_online = false;
+        last_seen_at = null;
+      } else if (visibility === 'contacts') {
+        const isContact = await this.repo.isContact(targetUserId, requesterId);
+        if (!isContact) {
+          is_online = false;
+          last_seen_at = null;
+        }
+      }
+    }
+
+    const { id, username, display_name, avatar_url, bio } = user;
     return { id, username, display_name, avatar_url, bio, is_online, last_seen_at };
   }
 }

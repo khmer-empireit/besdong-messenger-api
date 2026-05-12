@@ -104,7 +104,10 @@ export class UserController {
   @ApiResponse({ status: 200, type: PublicProfileResponseDto })
   @ApiResponse({ status: 400, description: 'Invalid user ID format' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  getUser(@Param('id', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST })) id: string) {
-    return this.userService.getPublicProfile(id);
+  getUser(
+    @CurrentUser() user: { sub: string },
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST })) id: string,
+  ) {
+    return this.userService.getPublicProfile(id, user.sub);
   }
 }
