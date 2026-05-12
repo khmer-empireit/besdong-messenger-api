@@ -2,186 +2,501 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Besdong Chat Client</title>
+  <title>Besdong Chat</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 16px; }
-    .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .row input, .row button, .row textarea { font: inherit; }
-    #chatLog { width: 100%; height: 280px; margin-top: 8px; white-space: pre-wrap; overflow-y: auto; }
-    .box { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-bottom: 16px; background: #f9f9f9; }
-    label { display: block; margin-bottom: 4px; font-weight: 600; }
-    #status { font-size: 0.95rem; margin-top: 4px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Header */
+    #header { background: #16213e; padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #0f3460; flex-shrink: 0; }
+    #header h1 { font-size: 1rem; color: #4fc3f7; flex: 1; }
+    #header input { background: #0f3460; border: 1px solid #1565c0; border-radius: 6px; padding: 6px 10px; color: #e0e0e0; font-size: 0.82rem; width: 160px; }
+    #status-badge { font-size: 0.78rem; padding: 4px 10px; border-radius: 12px; background: #263238; white-space: nowrap; }
+    #status-badge.online { background: #1b5e20; color: #81c784; }
+    .btn { padding: 7px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: opacity 0.15s; white-space: nowrap; }
+    .btn:hover { opacity: 0.85; }
+    .btn-blue   { background: #1565c0; color: #fff; }
+    .btn-green  { background: #2e7d32; color: #fff; }
+    .btn-red    { background: #b71c1c; color: #fff; }
+    .btn-gray   { background: #37474f; color: #fff; }
+    .btn-full   { width: 100%; }
+
+    /* Layout */
+    #main { display: flex; flex: 1; overflow: hidden; }
+
+    /* Sidebar */
+    #sidebar { width: 220px; background: #16213e; border-right: 1px solid #0f3460; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+    #sidebar .label { font-size: 0.7rem; color: #78909c; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+    #sidebar input { width: 100%; background: #0f3460; border: 1px solid #1565c0; border-radius: 6px; padding: 7px 10px; color: #e0e0e0; font-size: 0.82rem; }
+    #my-id { font-size: 0.7rem; color: #546e7a; word-break: break-all; line-height: 1.4; }
+    .divider { border: none; border-top: 1px solid #0f3460; }
+
+    /* Chat */
+    #chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    #messages { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+
+    /* Messages */
+    .msg { max-width: 72%; display: flex; flex-direction: column; gap: 2px; }
+    .msg.mine   { align-self: flex-end; align-items: flex-end; }
+    .msg.theirs { align-self: flex-start; align-items: flex-start; }
+
+    .msg-sender { font-size: 0.7rem; color: #78909c; padding: 0 4px; }
+    .msg-bubble { padding: 9px 13px; border-radius: 16px; max-width: 100%; word-break: break-word; }
+    .msg.mine   .msg-bubble { background: #1565c0; color: #fff; border-bottom-right-radius: 4px; }
+    .msg.theirs .msg-bubble { background: #263238; color: #e0e0e0; border-bottom-left-radius: 4px; }
+    .msg-time { font-size: 0.66rem; color: #546e7a; padding: 0 4px; }
+
+    .msg-image { max-width: 280px; max-height: 220px; border-radius: 10px; display: block; cursor: zoom-in; }
+    .msg-caption { font-size: 0.88rem; margin-top: 5px; }
+
+    .msg-file { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+    .msg-file-icon { font-size: 1.8rem; line-height: 1; }
+    .msg-file-name { font-size: 0.88rem; font-weight: 600; }
+    .msg-file-size { font-size: 0.72rem; opacity: 0.65; }
+
+    .msg-audio audio { width: 210px; height: 36px; }
+
+    .sys-msg { text-align: center; font-size: 0.72rem; color: #546e7a; padding: 2px 0; }
+
+    /* Input area */
+    #input-area { background: #16213e; border-top: 1px solid #0f3460; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+
+    .input-row { display: flex; align-items: center; gap: 8px; }
+    .input-label { font-size: 0.78rem; color: #78909c; white-space: nowrap; }
+    select { background: #0f3460; border: 1px solid #1565c0; border-radius: 6px; padding: 5px 8px; color: #e0e0e0; font-size: 0.82rem; cursor: pointer; }
+
+    #file-row { display: none; }
+    #file-row.show { display: flex; }
+    #file-real { display: none; }
+    #file-pick { background: #37474f; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; }
+    #file-pick:hover { background: #455a64; }
+    #file-name { font-size: 0.78rem; color: #90a4ae; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #upload-status { font-size: 0.76rem; color: #4fc3f7; }
+
+    #mode-row { display: none; }
+    #mode-row.show { display: flex; }
+
+    #send-row { display: flex; gap: 8px; }
+    #messageInput { flex: 1; background: #0f3460; border: 1px solid #1565c0; border-radius: 20px; padding: 9px 16px; color: #e0e0e0; font-size: 0.9rem; outline: none; }
+    #messageInput:focus { border-color: #4fc3f7; }
+    #messageInput::placeholder { color: #455a64; }
+    #sendBtn { background: #1565c0; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.1rem; color: #fff; flex-shrink: 0; }
+    #sendBtn:hover { background: #1976d2; }
+
+    /* Lightbox */
+    #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 999; justify-content: center; align-items: center; cursor: zoom-out; }
+    #lightbox.open { display: flex; }
+    #lightbox img { max-width: 92%; max-height: 92%; border-radius: 8px; box-shadow: 0 8px 40px #000; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #37474f; border-radius: 4px; }
   </style>
 </head>
 <body>
-  <h1>Besdong Real-Time Chat Client</h1>
 
-  <div class="box">
-    <div class="row">
-      <label>Email</label>
-      <input id="email" type="email" placeholder="Email" value="sokheng@example.com" style="flex:1" />
+<div id="header">
+  <h1>Besdong Chat</h1>
+  <input id="email" type="email" placeholder="Email" value="sokheng@example.com" />
+  <input id="password" type="password" placeholder="Password" value="Test@1234" />
+  <button class="btn btn-blue" id="loginBtn">Login</button>
+  <button class="btn btn-red"  id="logoutBtn">Logout</button>
+  <div id="status-badge">Not logged in</div>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div>
+      <div class="label">Conversation ID</div>
+      <input id="conversationId" type="text" placeholder="Paste conversation ID" />
     </div>
-    <div class="row">
-      <label>Password</label>
-      <input id="password" type="password" placeholder="Password" value="Test@1234" style="flex:1" />
-    </div>
-    <div class="row">
-      <button id="loginBtn">Login</button>
-      <button id="logoutBtn">Logout</button>
-    </div>
-    <div id="status">Not logged in</div>
+    <button class="btn btn-gray btn-full" id="loadMessagesBtn">Load History</button>
+    <button class="btn btn-green btn-full" id="joinBtn">Join Room</button>
+    <button class="btn btn-red btn-full" id="leaveBtn">Leave Room</button>
+    <hr class="divider" />
+    <div class="label">My User ID</div>
+    <div id="my-id">—</div>
   </div>
 
-  <div class="box">
-    <div class="row">
-      <label>Conversation ID</label>
-      <input id="conversationId" type="text" placeholder="Conversation ID" value="b925b38d-6a72-40e5-8e5e-ee9650618376" style="flex:1" />
+  <div id="chat-area">
+    <div id="messages">
+      <div class="sys-msg">Login and join a conversation to start chatting</div>
     </div>
-    <div class="row">
-      <button id="loadMessagesBtn">Load Messages</button>
-      <button id="joinBtn">Join Room</button>
-      <button id="leaveBtn">Leave Room</button>
+
+    <div id="input-area">
+
+      <div class="input-row" id="type-row">
+        <span class="input-label">Type:</span>
+        <select id="type-select">
+          <option value="text">💬 Text</option>
+          <option value="image">🖼 Image</option>
+          <option value="file">📄 File / Video</option>
+          <option value="audio">🎵 Audio</option>
+        </select>
+      </div>
+
+      <div class="input-row" id="mode-row">
+        <span class="input-label">Mode:</span>
+        <select id="mode-select">
+          <option value="compressed">Compressed — resized JPEG</option>
+          <option value="original">Original — keep format</option>
+        </select>
+      </div>
+
+      <div class="input-row" id="file-row">
+        <label id="file-pick" for="file-real">📎 Choose</label>
+        <input id="file-real" type="file" />
+        <span id="file-name">No file chosen</span>
+        <span id="upload-status"></span>
+      </div>
+
+      <div class="input-row" id="send-row">
+        <input id="messageInput" type="text" placeholder="Message or caption…" />
+        <button id="sendBtn">➤</button>
+      </div>
+
     </div>
   </div>
+</div>
 
-  <div class="box">
-    <textarea id="chatLog" readonly></textarea>
-  </div>
+<div id="lightbox">
+  <img id="lightbox-img" src="" alt="" />
+</div>
 
-  <div class="box">
-    <div class="row">
-      <input id="messageInput" type="text" placeholder="Type a message" style="flex:1" />
-      <button id="sendBtn">Send</button>
-    </div>
-  </div>
+<script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+<script>
+  const API = 'http://localhost:3000/api/v1';
+  const WS  = 'http://localhost:3000/ws';
 
-  <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-  <script>
-    const apiBase = 'http://localhost:3000/api/v1';
-    const wsBase = 'http://localhost:3000/ws';
-    let token = null;
-    let socket = null;
-    let currentUser = null;
-    let joinedConversation = null;
+  let token = null;
+  let socket = null;
+  let myUserId = null;
+  let pendingAttachment = null;
+  let typingTimer = null;
 
-    const $ = id => document.getElementById(id);
-    const log = text => {
-      const chatLog = $('chatLog');
-      chatLog.value += text + '\n';
-      chatLog.scrollTop = chatLog.scrollHeight;
-    };
+  const $ = id => document.getElementById(id);
+  const fmtSize = b => b < 1024*1024 ? (b/1024).toFixed(1)+' KB' : (b/1024/1024).toFixed(1)+' MB';
+  const fmtTime = iso => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    const setStatus = text => {
-      $('status').textContent = text;
-    };
+  function setStatus(text, online = false) {
+    const el = $('status-badge');
+    el.textContent = text;
+    el.className = online ? 'online' : '';
+  }
 
-    const api = async (path, options = {}) => {
-      const res = await fetch(apiBase + path, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: 'Bearer ' + token } : {}),
-        },
-        ...options,
-      });
-      return res.json();
-    };
+  function sysMsg(text) {
+    const d = document.createElement('div');
+    d.className = 'sys-msg';
+    d.textContent = text;
+    $('messages').appendChild(d);
+    scrollBottom();
+  }
 
-    $('loginBtn').addEventListener('click', async () => {
-      const email = $('email').value.trim();
-      const password = $('password').value;
-      if (!email || !password) return alert('Enter email and password');
+  function scrollBottom() {
+    const m = $('messages');
+    m.scrollTop = m.scrollHeight;
+  }
 
-      const result = await api('/auth/login', {
+  function fileIcon(mime) {
+    if (!mime) return '📄';
+    if (mime.startsWith('video/')) return '🎬';
+    if (mime.includes('pdf')) return '📕';
+    if (mime.includes('word') || mime.includes('doc')) return '📘';
+    if (mime.includes('excel') || mime.includes('sheet') || mime.includes('xls')) return '📗';
+    if (mime.includes('powerpoint') || mime.includes('presentation') || mime.includes('ppt')) return '📙';
+    if (mime.includes('zip')) return '🗜';
+    if (mime.startsWith('text/')) return '📝';
+    return '📄';
+  }
+
+  function renderMsg(msg) {
+    const isMe = msg.sender_id === myUserId;
+    const wrap = document.createElement('div');
+    wrap.className = `msg ${isMe ? 'mine' : 'theirs'}`;
+    wrap.dataset.id = msg.id;
+
+    if (!isMe) {
+      const s = document.createElement('div');
+      s.className = 'msg-sender';
+      s.textContent = (msg.sender_id || '').slice(0, 8) + '…';
+      wrap.appendChild(s);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+
+    if (msg.deleted_at) {
+      bubble.style.opacity = '0.45';
+      bubble.style.fontStyle = 'italic';
+      bubble.textContent = 'Message deleted';
+
+    } else if (msg.type === 'text') {
+      bubble.textContent = msg.content;
+
+    } else if (msg.type === 'image' && msg.attachments?.length) {
+      const a = msg.attachments[0];
+      const img = document.createElement('img');
+      img.src = a.url;
+      img.className = 'msg-image';
+      img.alt = a.file_name || 'image';
+      img.onclick = () => { $('lightbox-img').src = a.url; $('lightbox').classList.add('open'); };
+      bubble.appendChild(img);
+      if (msg.content) {
+        const cap = document.createElement('div');
+        cap.className = 'msg-caption';
+        cap.textContent = msg.content;
+        bubble.appendChild(cap);
+      }
+
+    } else if (msg.type === 'audio' && msg.attachments?.length) {
+      const a = msg.attachments[0];
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.src = a.url;
+      audio.className = 'msg-audio';
+      bubble.appendChild(audio);
+
+    } else if (msg.attachments?.length) {
+      // file or video
+      const a = msg.attachments[0];
+      const link = document.createElement('a');
+      link.className = 'msg-file';
+      link.href = a.url;
+      link.target = '_blank';
+      link.download = a.file_name || 'file';
+      link.innerHTML = `
+        <span class="msg-file-icon">${fileIcon(a.mime_type)}</span>
+        <span>
+          <div class="msg-file-name">${a.file_name || 'File'}</div>
+          <div class="msg-file-size">${fmtSize(a.size)}</div>
+        </span>`;
+      bubble.appendChild(link);
+      if (msg.content) {
+        const cap = document.createElement('div');
+        cap.className = 'msg-caption';
+        cap.textContent = msg.content;
+        bubble.appendChild(cap);
+      }
+    }
+
+    wrap.appendChild(bubble);
+
+    const t = document.createElement('div');
+    t.className = 'msg-time';
+    t.textContent = fmtTime(msg.created_at) + (msg.is_edited ? ' · edited' : '');
+    wrap.appendChild(t);
+
+    return wrap;
+  }
+
+  // ── Auth ───────────────────────────────────────────────────────────────────
+
+  $('loginBtn').addEventListener('click', async () => {
+    const email = $('email').value.trim();
+    const password = $('password').value;
+    if (!email || !password) return alert('Enter email and password');
+
+    const res = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!data.data?.access_token) return alert(data.message || 'Login failed');
+
+    token = data.data.access_token;
+
+    const me = await fetch(`${API}/users/me`, { headers: { Authorization: 'Bearer ' + token } });
+    const meData = await me.json();
+    myUserId = meData.data?.id;
+    $('my-id').textContent = myUserId || '—';
+
+    setStatus(email, true);
+    sysMsg(`Logged in as ${email}`);
+  });
+
+  $('logoutBtn').addEventListener('click', () => {
+    if (socket) { socket.disconnect(); socket = null; }
+    token = null; myUserId = null; pendingAttachment = null;
+    $('my-id').textContent = '—';
+    setStatus('Not logged in');
+    sysMsg('Logged out');
+  });
+
+  // ── History ────────────────────────────────────────────────────────────────
+
+  $('loadMessagesBtn').addEventListener('click', async () => {
+    if (!token) return alert('Login first');
+    const convId = $('conversationId').value.trim();
+    if (!convId) return alert('Enter conversation ID');
+
+    const res = await fetch(`${API}/conversations/${convId}/messages`, {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const data = await res.json();
+    if (!data.success) return sysMsg('Error: ' + data.message);
+
+    $('messages').innerHTML = '';
+    sysMsg('── Message history ──');
+    [...data.data].reverse().forEach(m => $('messages').appendChild(renderMsg(m)));
+    scrollBottom();
+  });
+
+  // ── WebSocket ──────────────────────────────────────────────────────────────
+
+  $('joinBtn').addEventListener('click', () => {
+    if (!token) return alert('Login first');
+    const convId = $('conversationId').value.trim();
+    if (!convId) return alert('Enter conversation ID');
+
+    if (socket) socket.disconnect();
+
+    socket = io(WS, { auth: { token: 'Bearer ' + token } });
+
+    socket.on('connect', () => {
+      sysMsg(`Socket connected`);
+      socket.emit('conversation:join', { conversation_id: convId });
+    });
+    socket.on('disconnect', reason => sysMsg(`Disconnected: ${reason}`));
+    socket.on('connect_error', err => sysMsg(`Connect error: ${err.message}`));
+    socket.on('message:new', msg => { $('messages').appendChild(renderMsg(msg)); scrollBottom(); });
+    socket.on('message:read_receipt', d => sysMsg(`Read by ${(d.user_id||'').slice(0,8)}…`));
+    socket.on('typing:indicator', d => { if (d.is_typing) sysMsg(`${(d.user_id||'').slice(0,8)}… is typing`); });
+    socket.on('user:status', d => sysMsg(`${(d.user_id||'').slice(0,8)}… ${d.is_online ? 'online' : 'offline'}`));
+    socket.on('error', err => sysMsg(`Error: ${JSON.stringify(err)}`));
+  });
+
+  $('leaveBtn').addEventListener('click', () => {
+    if (socket) { socket.disconnect(); socket = null; sysMsg('Left room'); }
+  });
+
+  // ── Type selector ──────────────────────────────────────────────────────────
+
+  $('type-select').addEventListener('change', () => {
+    const type = $('type-select').value;
+    const fileRow = $('file-row');
+    const modeRow = $('mode-row');
+    const fileInput = $('file-real');
+
+    pendingAttachment = null;
+    $('file-name').textContent = 'No file chosen';
+    $('upload-status').textContent = '';
+
+    if (type === 'text') {
+      fileRow.classList.remove('show');
+      modeRow.classList.remove('show');
+    } else if (type === 'image') {
+      fileRow.classList.add('show');
+      modeRow.classList.add('show');
+      fileInput.accept = 'image/*';
+    } else if (type === 'audio') {
+      fileRow.classList.add('show');
+      modeRow.classList.remove('show');
+      fileInput.accept = 'audio/*';
+    } else {
+      // file / video
+      fileRow.classList.add('show');
+      modeRow.classList.remove('show');
+      fileInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.mp4,.mov,.avi,.mkv,.webm';
+    }
+  });
+
+  // ── File picked — auto upload ──────────────────────────────────────────────
+
+  $('file-real').addEventListener('change', async () => {
+    const file = $('file-real').files[0];
+    if (!file) return;
+    if (!token) return alert('Login first');
+
+    $('file-name').textContent = file.name;
+    $('upload-status').textContent = 'Uploading…';
+    pendingAttachment = null;
+
+    const msgType = $('type-select').value;
+    const mode = msgType === 'image' ? $('mode-select').value : 'original';
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const res = await fetch(`${API}/upload?type=attachment&mode=${mode}`, {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        headers: { Authorization: 'Bearer ' + token },
+        body: form,
       });
-
-      if (result.success === false || !result.data?.access_token) {
-        alert(JSON.stringify(result, null, 2));
+      const data = await res.json();
+      if (!data.success) {
+        $('upload-status').textContent = '✗ ' + data.message;
         return;
       }
+      const d = data.data;
+      const attType = msgType === 'file' && file.type.startsWith('video/') ? 'video'
+                    : msgType === 'audio' ? 'audio'
+                    : msgType === 'image' ? 'image'
+                    : 'file';
 
-      token = result.data.access_token;
-      currentUser = email;
-      setStatus(`Logged in as ${email}`);
-      log(`✔ Logged in as ${email}`);
-    });
+      pendingAttachment = {
+        url: d.url,
+        key: d.key,
+        type: attType,
+        mime_type: d.mimeType,
+        size: d.size,
+        ...(d.width  ? { width:  d.width  } : {}),
+        ...(d.height ? { height: d.height } : {}),
+        file_name: file.name,
+      };
+      $('upload-status').textContent = `✓ ${fmtSize(d.size)}`;
+    } catch (e) {
+      $('upload-status').textContent = '✗ ' + e.message;
+    }
+  });
 
-    $('logoutBtn').addEventListener('click', () => {
-      if (socket) {
-        socket.disconnect();
-        socket = null;
-      }
-      token = null;
-      currentUser = null;
-      joinedConversation = null;
-      setStatus('Logged out');
-      log('✔ Logged out');
-    });
+  // ── Send ───────────────────────────────────────────────────────────────────
 
-    $('loadMessagesBtn').addEventListener('click', async () => {
-      const conversationId = $('conversationId').value.trim();
-      if (!token) return alert('Login first');
-      if (!conversationId) return alert('Enter conversation ID');
-      const result = await api(`/conversations/${conversationId}/messages`);
-      if (result.success === false) {
-        log('ERROR loading messages: ' + JSON.stringify(result));
-        return;
-      }
-      log('--- Loaded messages ---');
-      result.data.forEach(msg => {
-        log(`${msg.created_at} | ${msg.sender_id}: ${msg.content}`);
-      });
-    });
+  $('sendBtn').addEventListener('click', sendMessage);
+  $('messageInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
 
-    $('joinBtn').addEventListener('click', () => {
-      const conversationId = $('conversationId').value.trim();
-      if (!token) return alert('Login first');
-      if (!conversationId) return alert('Enter conversation ID');
+  function sendMessage() {
+    if (!socket) return alert('Join a room first');
+    const convId = $('conversationId').value.trim();
+    const content = $('messageInput').value.trim();
+    const type = $('type-select').value;
 
-      if (socket) {
-        socket.disconnect();
-      }
-
-      socket = io(wsBase, {
-        auth: { token: 'Bearer ' + token },
-      });
-
-      socket.on('connect', () => {
-        log('Socket connected: ' + socket.id);
-        setStatus(`Connected as ${currentUser}`);
-        socket.emit('conversation:join', { conversation_id: conversationId });
-        joinedConversation = conversationId;
-      });
-
-      socket.on('disconnect', reason => log('Socket disconnected: ' + reason));
-      socket.on('connect_error', err => log('Socket connect error: ' + err.message));
-      socket.on('message:new', msg => log(`NEW | ${msg.sender_id}: ${msg.content}`));
-      socket.on('message:read_receipt', data => log(`READ | ${data.user_id} read ${data.conversation_id}`));
-      socket.on('typing:indicator', data => log(`TYPING | ${data.user_id} is typing in ${data.conversation_id}`));
-      socket.on('user:status', data => log(`STATUS | ${data.user_id} is_online=${data.is_online}`));
-      socket.on('error', err => log('Socket error: ' + JSON.stringify(err)));
-    });
-
-    $('leaveBtn').addEventListener('click', () => {
-      if (socket) {
-        socket.disconnect();
-        socket = null;
-        joinedConversation = null;
-        log('Left socket room');
-      }
-    });
-
-    $('sendBtn').addEventListener('click', () => {
-      if (!socket) return alert('Join a room first');
-      const conversationId = $('conversationId').value.trim();
-      const content = $('messageInput').value.trim();
+    if (type === 'text') {
       if (!content) return;
-      socket.emit('message:send', { conversation_id: conversationId, content });
-      $('messageInput').value = '';
-    });
+      socket.emit('message:send', { conversation_id: convId, type: 'text', content });
+    } else {
+      if (!pendingAttachment) return alert('Upload a file first');
+      socket.emit('message:send', {
+        conversation_id: convId,
+        type,
+        content: content || undefined,
+        attachments: [pendingAttachment],
+      });
+      pendingAttachment = null;
+      $('file-name').textContent = 'No file chosen';
+      $('upload-status').textContent = '';
+      $('file-real').value = '';
+    }
 
-    log('Open this file in two browser windows, login as two different users, and join the same conversation ID.');
-  </script>
+    $('messageInput').value = '';
+  }
+
+  // ── Typing ─────────────────────────────────────────────────────────────────
+
+  $('messageInput').addEventListener('input', () => {
+    if (!socket) return;
+    const convId = $('conversationId').value.trim();
+    socket.emit('typing:start', { conversation_id: convId });
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => socket.emit('typing:stop', { conversation_id: convId }), 2000);
+  });
+
+  // ── Lightbox ───────────────────────────────────────────────────────────────
+
+  $('lightbox').addEventListener('click', () => $('lightbox').classList.remove('open'));
+</script>
 </body>
 </html>

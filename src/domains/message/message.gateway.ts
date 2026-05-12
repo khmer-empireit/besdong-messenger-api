@@ -54,7 +54,7 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
   @SubscribeMessage('message:send')
   async onMessageSend(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { conversation_id: string; content: string; reply_to_id?: string },
+    @MessageBody() data: { conversation_id: string; content?: string; type?: 'text' | 'image' | 'file' | 'audio'; attachments?: any[]; reply_to_id?: string },
   ) {
     const userId = client.data.userId;
     if (!userId) return;
@@ -62,6 +62,8 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     try {
       const msg = await this.messageService.send(data.conversation_id, userId, {
         content: data.content,
+        type: data.type,
+        attachments: data.attachments,
         reply_to_id: data.reply_to_id,
       });
       this.server.to(data.conversation_id).emit('message:new', msg);

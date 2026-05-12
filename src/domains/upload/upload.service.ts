@@ -43,7 +43,7 @@ const MAX_SIZE_IMAGE_ORIGINAL = 5 * 1024 * 1024; // 5 MB for uncompressed images
 const IMAGE_DIMENSIONS: Record<UploadType, { width: number; height: number }> = {
   avatar:       { width: 500,  height: 500  },
   group_avatar: { width: 500,  height: 500  },
-  attachment:   { width: 1920, height: 1920 },
+  attachment:   { width: 2048, height: 2048 },
   story:        { width: 1080, height: 1920 },
 };
 
@@ -139,8 +139,8 @@ export class UploadService {
     let result: { data: Buffer; info: sharp.OutputInfo };
     if (mode === 'compressed') {
       result = await sharp(file.buffer)
-        .resize(width, height, { fit: 'cover', position: 'center', withoutEnlargement: true })
-        .webp({ quality: 85 })
+        .resize(width, height, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 85 })
         .toBuffer({ resolveWithObject: true });
     } else {
       result = await sharp(file.buffer).toBuffer({ resolveWithObject: true });

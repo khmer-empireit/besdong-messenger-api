@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ConversationService } from './conversation.service';
 import { ConversationRepository } from './conversation.repository';
+import { UserRepository } from '../user/user.repository';
 
 const mockConvDirect = {
   id: 'conv-uuid-1',
@@ -41,9 +42,12 @@ const mockParticipantMember = {
   last_read_at: null,
 };
 
+const mockUser = { id: 'user-uuid-1', username: 'user1' };
+
 describe('ConversationService', () => {
   let service: ConversationService;
   let repo: jest.Mocked<ConversationRepository>;
+  let userRepo: jest.Mocked<UserRepository>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -64,15 +68,23 @@ describe('ConversationService', () => {
             setMute: jest.fn(),
           },
         },
+        {
+          provide: UserRepository,
+          useValue: {
+            findById: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get(ConversationService);
     repo = module.get(ConversationRepository);
+    userRepo = module.get(UserRepository);
 
     repo.addParticipant.mockResolvedValue(undefined);
     repo.removeParticipant.mockResolvedValue(undefined);
     repo.setMute.mockResolvedValue(undefined);
+    userRepo.findById.mockResolvedValue(mockUser as any);
   });
 
   // ── create (direct) ───────────────────────────────────────────────────────

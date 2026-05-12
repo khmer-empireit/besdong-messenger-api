@@ -1,7 +1,15 @@
-import { Message } from '../entities/message.entity';
+import { Message, MessageAttachment } from '../entities/message.entity';
+import { AttachmentInputDto } from '../dto/send-message.dto';
 
 export interface IMessageRepository {
-  create(data: { conversation_id: string; sender_id: string; content: string; reply_to_id?: string }): Promise<Message>;
+  create(data: {
+    conversation_id: string;
+    sender_id: string;
+    content: string;
+    type: string;
+    reply_to_id?: string;
+    attachments?: AttachmentInputDto[];
+  }): Promise<Message>;
   findById(id: string): Promise<Message | undefined>;
   list(conversationId: string, cursor?: string, limit?: number): Promise<Message[]>;
   update(id: string, data: { content: string; is_edited: boolean; edited_at: Date }): Promise<Message>;
