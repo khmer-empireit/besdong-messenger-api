@@ -4,12 +4,25 @@ import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { AddMembersDto } from './dto/add-members.dto';
 import { MuteConversationDto } from './dto/mute-conversation.dto';
+import { UserRepository } from '../user/user.repository';
 
 @Injectable()
 export class ConversationService {
-  constructor(private repo: ConversationRepository) {}
+  constructor(private repo: ConversationRepository, private userRepo: UserRepository) {}
 
   async create(userId: string, dto: CreateConversationDto) {
+    // Validate that all member_ids are existing users and not the current user
+    const allUserIds = [userId, ...dto.member_ids];
+    const uniqueUserIds = [...new Set(allUserIds)];
+    if (uniqueUserIds.length !== allUserIds.length) {
+      throw new BadRequestException('Cannot add yourself to the conversation');
+    }
+    const existingUsers = await Promise.all(uniqueUserIds.map(id => this.userRepo.findById(id)));
+    const missingUsers = uniqueUserIds.filter((id, index) => !existingUsers[index]);
+    if (missingUsers.length > 0) {
+      throw new BadRequestException(`User(s) not found: ${missingUsers.join(', ')}`);
+    }
+
     if (dto.type === 'direct') {
       if (dto.member_ids.length !== 1) {
         throw new BadRequestException('Direct conversation requires exactly one other user');

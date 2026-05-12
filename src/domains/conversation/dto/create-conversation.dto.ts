@@ -6,12 +6,15 @@ export class CreateConversationDto {
   @IsIn(['direct', 'group'])
   type: 'direct' | 'group';
 
-  @ApiProperty({ example: ['uuid-1', 'uuid-2'], description: 'User IDs to add (excluding yourself)' })
+  @ApiProperty({ 
+    example: ['uuid-1'], 
+    description: 'User IDs to add (excluding yourself). For direct conversations: exactly one ID. For group conversations: one or more IDs.' 
+  })
   @IsArray()
   @IsUUID('4', { each: true })
   member_ids: string[];
 
-  @ApiPropertyOptional({ example: 'Dev Team' })
+  @ApiPropertyOptional({ example: 'Dev Team', description: 'Required for group conversations' })
   @IsOptional()
   @IsString()
   @MinLength(1)

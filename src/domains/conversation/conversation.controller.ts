@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiExcludeController, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConversationService } from './conversation.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
@@ -10,7 +10,6 @@ import { MessageResponseDto } from '../auth/dto/message-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 
-@ApiExcludeController()
 @ApiTags('Conversations')
 @ApiBearerAuth()
 @UseGuards(JwtGuard)
@@ -19,7 +18,30 @@ export class ConversationController {
   constructor(private conversationService: ConversationService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a direct or group conversation' })
+  @ApiOperation({ 
+    summary: 'Create a direct or group conversation',
+    description: 'For direct conversations: provide type="direct" and exactly one user ID in member_ids. For group conversations: provide type="group", a name, and one or more user IDs in member_ids.'
+  })
+  @ApiBody({
+    type: CreateConversationDto,
+    examples: {
+      direct: {
+        summary: 'Direct conversation',
+        value: {
+          type: 'direct',
+          member_ids: ['uuid-1']
+        }
+      },
+      group: {
+        summary: 'Group conversation',
+        value: {
+          type: 'group',
+          member_ids: ['uuid-1', 'uuid-2'],
+          name: 'Dev Team'
+        }
+      }
+    }
+  })
   @ApiResponse({ status: 201, type: ConversationResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error' })
   create(@CurrentUser() user: { sub: string }, @Body() dto: CreateConversationDto) {

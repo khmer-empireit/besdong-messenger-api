@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Besdong Chat Client</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 16px; }
+    .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .row input, .row button, .row textarea { font: inherit; }
+    #chatLog { width: 100%; height: 280px; margin-top: 8px; white-space: pre-wrap; overflow-y: auto; }
+    .box { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-bottom: 16px; background: #f9f9f9; }
+    label { display: block; margin-bottom: 4px; font-weight: 600; }
+    #status { font-size: 0.95rem; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Besdong Real-Time Chat Client</h1>
+
+  <div class="box">
+    <div class="row">
+      <label>Email</label>
+      <input id="email" type="email" placeholder="Email" value="sokheng@example.com" style="flex:1" />
+    </div>
+    <div class="row">
+      <label>Password</label>
+      <input id="password" type="password" placeholder="Password" value="Test@1234" style="flex:1" />
+    </div>
+    <div class="row">
+      <button id="loginBtn">Login</button>
+      <button id="logoutBtn">Logout</button>
+    </div>
+    <div id="status">Not logged in</div>
+  </div>
+
+  <div class="box">
+    <div class="row">
+      <label>Conversation ID</label>
+      <input id="conversationId" type="text" placeholder="Conversation ID" value="b925b38d-6a72-40e5-8e5e-ee9650618376" style="flex:1" />
+    </div>
+    <div class="row">
+      <button id="loadMessagesBtn">Load Messages</button>
+      <button id="joinBtn">Join Room</button>
+      <button id="leaveBtn">Leave Room</button>
+    </div>
+  </div>
+
+  <div class="box">
+    <textarea id="chatLog" readonly></textarea>
+  </div>
+
+  <div class="box">
+    <div class="row">
+      <input id="messageInput" type="text" placeholder="Type a message" style="flex:1" />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+  <script>
+    const apiBase = 'http://localhost:3000/api/v1';
+    const wsBase = 'http://localhost:3000/ws';
+    let token = null;
+    let socket = null;
+    let currentUser = null;
+    let joinedConversation = null;
+
+    const $ = id => document.getElementById(id);
+    const log = text => {
+      const chatLog = $('chatLog');
+      chatLog.value += text + '\n';
+      chatLog.scrollTop = chatLog.scrollHeight;
+    };
+
+    const setStatus = text => {
+      $('status').textContent = text;
+    };
+
+    const api = async (path, options = {}) => {
+      const res = await fetch(apiBase + path, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        },
+        ...options,
+      });
+      return res.json();
+    };
+
+    $('loginBtn').addEventListener('click', async () => {
+      const email = $('email').value.trim();
+      const password = $('password').value;
+      if (!email || !password) return alert('Enter email and password');
+
+      const result = await api('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (result.success === false || !result.data?.access_token) {
+        alert(JSON.stringify(result, null, 2));
+        return;
+      }
+
+      token = result.data.access_token;
+      currentUser = email;
+      setStatus(`Logged in as ${email}`);
+      log(`✔ Logged in as ${email}`);
+    });
+
+    $('logoutBtn').addEventListener('click', () => {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+      token = null;
+      currentUser = null;
+      joinedConversation = null;
+      setStatus('Logged out');
+      log('✔ Logged out');
+    });
+
+    $('loadMessagesBtn').addEventListener('click', async () => {
+      const conversationId = $('conversationId').value.trim();
+      if (!token) return alert('Login first');
+      if (!conversationId) return alert('Enter conversation ID');
+      const result = await api(`/conversations/${conversationId}/messages`);
+      if (result.success === false) {
+        log('ERROR loading messages: ' + JSON.stringify(result));
+        return;
+      }
+      log('--- Loaded messages ---');
+      result.data.forEach(msg => {
+        log(`${msg.created_at} | ${msg.sender_id}: ${msg.content}`);
+      });
+    });
+
+    $('joinBtn').addEventListener('click', () => {
+      const conversationId = $('conversationId').value.trim();
+      if (!token) return alert('Login first');
+      if (!conversationId) return alert('Enter conversation ID');
+
+      if (socket) {
+        socket.disconnect();
+      }
+
+      socket = io(wsBase, {
+        auth: { token: 'Bearer ' + token },
+      });
+
+      socket.on('connect', () => {
+        log('Socket connected: ' + socket.id);
+        setStatus(`Connected as ${currentUser}`);
+        socket.emit('conversation:join', { conversation_id: conversationId });
+        joinedConversation = conversationId;
+      });
+
+      socket.on('disconnect', reason => log('Socket disconnected: ' + reason));
+      socket.on('connect_error', err => log('Socket connect error: ' + err.message));
+      socket.on('message:new', msg => log(`NEW | ${msg.sender_id}: ${msg.content}`));
+      socket.on('message:read_receipt', data => log(`READ | ${data.user_id} read ${data.conversation_id}`));
+      socket.on('typing:indicator', data => log(`TYPING | ${data.user_id} is typing in ${data.conversation_id}`));
+      socket.on('user:status', data => log(`STATUS | ${data.user_id} is_online=${data.is_online}`));
+      socket.on('error', err => log('Socket error: ' + JSON.stringify(err)));
+    });
+
+    $('leaveBtn').addEventListener('click', () => {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+        joinedConversation = null;
+        log('Left socket room');
+      }
+    });
+
+    $('sendBtn').addEventListener('click', () => {
+      if (!socket) return alert('Join a room first');
+      const conversationId = $('conversationId').value.trim();
+      const content = $('messageInput').value.trim();
+      if (!content) return;
+      socket.emit('message:send', { conversation_id: conversationId, content });
+      $('messageInput').value = '';
+    });
+
+    log('Open this file in two browser windows, login as two different users, and join the same conversation ID.');
+  </script>
+</body>
+</html>
