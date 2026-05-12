@@ -3,6 +3,7 @@ import { ConversationRepository } from './conversation.repository';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { AddMembersDto } from './dto/add-members.dto';
+import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { MuteConversationDto } from './dto/mute-conversation.dto';
 import { UserRepository } from '../user/user.repository';
 
@@ -85,14 +86,36 @@ export class ConversationService {
     return { message: 'Members added' };
   }
 
+  async updateMemberRole(conversationId: string, requesterId: string, targetUserId: string, dto: UpdateMemberRoleDto) {
+    const conv = await this.repo.findById(conversationId);
+    if (!conv) throw new NotFoundException('Conversation not found');
+    if (conv.type !== 'group') throw new BadRequestException('Only group conversations have roles');
+
+    await this.assertRole(conversationId, requesterId, ['owner']);
+
+    const target = await this.repo.getParticipant(conversationId, targetUserId);
+    if (!target) throw new NotFoundException('Member not found in this conversation');
+    if (target.role === 'owner') throw new ForbiddenException('Cannot change the owner\'s role');
+
+    await this.repo.updateParticipantRole(conversationId, targetUserId, dto.role);
+    return { message: 'Role updated' };
+  }
+
   async removeMember(conversationId: string, requesterId: string, targetUserId: string) {
     const conv = await this.repo.findById(conversationId);
     if (!conv) throw new NotFoundException('Conversation not found');
     if (conv.type !== 'group') throw new BadRequestException('Cannot remove members from a direct conversation');
 
     if (requesterId !== targetUserId) {
-      await this.assertRole(conversationId, requesterId, ['owner', 'admin']);
+      const requester = await this.repo.getParticipant(conversationId, requesterId);
+      if (!requester || !['owner', 'admin'].includes(requester.role)) throw new ForbiddenException('Insufficient permissions');
+
+      const target = await this.repo.getParticipant(conversationId, targetUserId);
+      if (!target) throw new NotFoundException('Member not found in this conversation');
+      if (target.role === 'owner') throw new ForbiddenException('Cannot remove the owner');
+      if (target.role === 'admin' && requester.role !== 'owner') throw new ForbiddenException('Only the owner can remove an admin');
     }
+
     await this.repo.removeParticipant(conversationId, targetUserId);
     return { message: 'Member removed' };
   }

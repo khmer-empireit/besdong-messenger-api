@@ -70,6 +70,10 @@ export class ConversationRepository implements IConversationRepository {
     await this.db.knex('participants').insert(data);
   }
 
+  async updateParticipantRole(conversationId: string, userId: string, role: 'admin' | 'member'): Promise<void> {
+    await this.db.knex('participants').where({ conversation_id: conversationId, user_id: userId }).update({ role });
+  }
+
   async removeParticipant(conversationId: string, userId: string): Promise<void> {
     await this.db
       .knex('participants')
