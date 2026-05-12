@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { MessageRepository } from './message.repository';
 import { ConversationRepository } from '../conversation/conversation.repository';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -13,11 +13,29 @@ export class MessageService {
 
   async send(conversationId: string, userId: string, dto: SendMessageDto) {
     await this.assertParticipant(conversationId, userId);
+
+    const type = dto.type ?? 'text';
+
+    if (type === 'text') {
+      if (!dto.content || dto.content.trim().length === 0) {
+        throw new BadRequestException('content is required for text messages');
+      }
+      if (dto.attachments && dto.attachments.length > 0) {
+        throw new BadRequestException('attachments are not allowed for text messages');
+      }
+    } else {
+      if (!dto.attachments || dto.attachments.length === 0) {
+        throw new BadRequestException(`attachments are required for ${type} messages`);
+      }
+    }
+
     const msg = await this.repo.create({
       conversation_id: conversationId,
       sender_id: userId,
-      content: dto.content,
+      content: dto.content ?? '',
+      type,
       reply_to_id: dto.reply_to_id,
+      attachments: dto.attachments,
     });
     await this.convRepo.update(conversationId, { updated_at: new Date() });
     return msg;

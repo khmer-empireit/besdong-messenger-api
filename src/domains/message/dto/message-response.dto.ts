@@ -1,4 +1,36 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+class AttachmentData {
+  @ApiProperty({ example: 'uuid' })
+  id: string;
+
+  @ApiProperty({ enum: ['image', 'file', 'audio', 'video'] })
+  type: string;
+
+  @ApiProperty({ example: 'https://cdn.example.com/attachments/file.jpg' })
+  url: string;
+
+  @ApiProperty({ example: 'attachments/uuid/file.jpg' })
+  key: string;
+
+  @ApiProperty({ example: 'image/jpeg' })
+  mime_type: string;
+
+  @ApiProperty({ example: 204800 })
+  size: number;
+
+  @ApiPropertyOptional({ example: 1920, nullable: true })
+  width: number | null;
+
+  @ApiPropertyOptional({ example: 1080, nullable: true })
+  height: number | null;
+
+  @ApiPropertyOptional({ example: 'document.pdf', nullable: true })
+  file_name: string | null;
+
+  @ApiProperty()
+  created_at: Date;
+}
 
 class MessageData {
   @ApiProperty({ example: 'uuid' })
@@ -13,7 +45,7 @@ class MessageData {
   @ApiProperty({ example: 'Hello!' })
   content: string;
 
-  @ApiProperty({ enum: ['text'], example: 'text' })
+  @ApiProperty({ enum: ['text', 'image', 'file', 'audio', 'call_log', 'system'], example: 'text' })
   type: string;
 
   @ApiProperty({ example: null, nullable: true })
@@ -30,6 +62,9 @@ class MessageData {
 
   @ApiProperty()
   created_at: Date;
+
+  @ApiProperty({ type: [AttachmentData] })
+  attachments: AttachmentData[];
 }
 
 class MessageActionData {
