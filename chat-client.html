@@ -56,6 +56,15 @@
 
     .msg-audio audio { width: 210px; height: 36px; }
 
+    .msg-reply-preview { background: rgba(0,0,0,0.18); border-left: 3px solid #4fc3f7; border-radius: 0 6px 6px 0; padding: 5px 9px; margin-bottom: 6px; cursor: pointer; max-width: 100%; overflow: hidden; }
+    .msg-reply-preview .reply-sender { font-size: 0.75rem; font-weight: 700; color: #4fc3f7; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .msg-reply-preview .reply-content { font-size: 0.78rem; color: #b0bec5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    #reply-bar { display: none; background: #0f3460; border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; color: #90caf9; align-items: center; gap: 8px; }
+    #reply-bar.show { display: flex; }
+    #reply-bar span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #reply-cancel { cursor: pointer; color: #ef9a9a; font-size: 1rem; line-height: 1; background: none; border: none; }
+
     .sys-msg { text-align: center; font-size: 0.72rem; color: #546e7a; padding: 2px 0; }
 
     /* Input area */
@@ -150,6 +159,11 @@
         <span id="upload-status"></span>
       </div>
 
+      <div id="reply-bar">
+        <span id="reply-preview-text"></span>
+        <button id="reply-cancel" title="Cancel reply">✕</button>
+      </div>
+
       <div class="input-row" id="send-row">
         <input id="messageInput" type="text" placeholder="Message or caption…" />
         <button id="sendBtn">➤</button>
@@ -173,6 +187,7 @@
   let myUserId = null;
   let pendingAttachment = null;
   let typingTimer = null;
+  let replyToId = null;
 
   const $ = id => document.getElementById(id);
   const fmtSize = b => b < 1024*1024 ? (b/1024).toFixed(1)+' KB' : (b/1024/1024).toFixed(1)+' MB';
@@ -209,11 +224,30 @@
     return '📄';
   }
 
+  function setReply(id, previewText) {
+    replyToId = id;
+    $('reply-preview-text').textContent = '↩ ' + previewText;
+    $('reply-bar').classList.add('show');
+    $('messageInput').focus();
+  }
+
+  function clearReply() {
+    replyToId = null;
+    $('reply-bar').classList.remove('show');
+    $('reply-preview-text').textContent = '';
+  }
+
   function renderMsg(msg) {
     const isMe = msg.sender_id === myUserId;
     const wrap = document.createElement('div');
     wrap.className = `msg ${isMe ? 'mine' : 'theirs'}`;
     wrap.dataset.id = msg.id;
+    wrap.title = 'Click to reply';
+    wrap.style.cursor = 'pointer';
+    wrap.addEventListener('click', () => {
+      const preview = msg.deleted_at ? 'Deleted message' : (msg.content || (msg.attachments?.[0]?.file_name ?? 'Attachment'));
+      setReply(msg.id, preview);
+    });
 
     if (!isMe) {
       const s = document.createElement('div');
@@ -225,13 +259,31 @@
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
 
+    if (msg.reply_to) {
+      const rp = document.createElement('div');
+      rp.className = 'msg-reply-preview';
+      const senderName = msg.reply_to.sender_id === myUserId ? 'You' : (msg.reply_to.sender_id || '').slice(0, 8) + '…';
+      const previewContent = msg.reply_to.content || (msg.reply_to.type !== 'text' ? `[${msg.reply_to.type}]` : 'Deleted message');
+      rp.innerHTML = `<div class="reply-sender">${senderName}</div><div class="reply-content">${previewContent}</div>`;
+      rp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const target = document.querySelector(`[data-id="${msg.reply_to.id}"]`);
+        if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.style.transition = 'background 0.3s'; target.style.background = 'rgba(79,195,247,0.15)'; setTimeout(() => target.style.background = '', 1000); }
+      });
+      bubble.appendChild(rp);
+    }
+
     if (msg.deleted_at) {
       bubble.style.opacity = '0.45';
       bubble.style.fontStyle = 'italic';
-      bubble.textContent = 'Message deleted';
+      const del = document.createElement('span');
+      del.textContent = 'Message deleted';
+      bubble.appendChild(del);
 
     } else if (msg.type === 'text') {
-      bubble.textContent = msg.content;
+      const txt = document.createElement('span');
+      txt.textContent = msg.content;
+      bubble.appendChild(txt);
 
     } else if (msg.type === 'image' && msg.attachments?.length) {
       const a = msg.attachments[0];
@@ -466,7 +518,7 @@
 
     if (type === 'text') {
       if (!content) return;
-      socket.emit('message:send', { conversation_id: convId, type: 'text', content });
+      socket.emit('message:send', { conversation_id: convId, type: 'text', content, ...(replyToId ? { reply_to_id: replyToId } : {}) });
     } else {
       if (!pendingAttachment) return alert('Upload a file first');
       socket.emit('message:send', {
@@ -474,6 +526,7 @@
         type,
         content: content || undefined,
         attachments: [pendingAttachment],
+        ...(replyToId ? { reply_to_id: replyToId } : {}),
       });
       pendingAttachment = null;
       $('file-name').textContent = 'No file chosen';
@@ -481,8 +534,11 @@
       $('file-real').value = '';
     }
 
+    clearReply();
     $('messageInput').value = '';
   }
+
+  $('reply-cancel').addEventListener('click', clearReply);
 
   // ── Typing ─────────────────────────────────────────────────────────────────
 
