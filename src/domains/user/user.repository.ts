@@ -47,6 +47,11 @@ export class UserRepository implements IUserRepository {
       .limit(20) as Promise<UserProfile[]>;
   }
 
+  async isContact(ownerId: string, contactId: string): Promise<boolean> {
+    const row = await this.db.knex('contacts').where({ owner_id: ownerId, contact_id: contactId }).first();
+    return !!row;
+  }
+
   async getSettings(userId: string): Promise<UserSettings | undefined> {
     return this.db
       .knex('user_settings')

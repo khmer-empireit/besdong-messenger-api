@@ -181,7 +181,7 @@ describe('UserService', () => {
     it('returns only public fields', async () => {
       repo.findById.mockResolvedValue(mockUser);
 
-      const result = await service.getPublicProfile('user-uuid-1');
+      const result = await service.getPublicProfile('user-uuid-1', 'requester-uuid');
 
       expect(result).toEqual({
         id: mockUser.id,
@@ -198,7 +198,7 @@ describe('UserService', () => {
     it('throws NotFoundException when user does not exist', async () => {
       repo.findById.mockResolvedValue(undefined);
 
-      await expect(service.getPublicProfile('missing-id')).rejects.toThrow(NotFoundException);
+      await expect(service.getPublicProfile('missing-id', 'requester-uuid')).rejects.toThrow(NotFoundException);
     });
   });
 });
