@@ -15,6 +15,13 @@ export interface MessageAttachment {
   created_at: Date;
 }
 
+export interface ReplyToMessage {
+  id: string;
+  sender_id: string | null;
+  content: string;
+  type: MessageType;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -22,6 +29,7 @@ export interface Message {
   content: string;
   type: MessageType;
   reply_to_id: string | null;
+  reply_to?: ReplyToMessage | null;
   is_edited: boolean;
   edited_at: Date | null;
   deleted_at: Date | null;

@@ -32,6 +32,20 @@ class AttachmentData {
   created_at: Date;
 }
 
+class ReplyToData {
+  @ApiProperty({ example: 'uuid' })
+  id: string;
+
+  @ApiProperty({ example: 'uuid', nullable: true })
+  sender_id: string | null;
+
+  @ApiProperty({ example: 'Hello!' })
+  content: string;
+
+  @ApiProperty({ enum: ['text', 'image', 'file', 'audio', 'call_log', 'system'] })
+  type: string;
+}
+
 class MessageData {
   @ApiProperty({ example: 'uuid' })
   id: string;
@@ -50,6 +64,9 @@ class MessageData {
 
   @ApiProperty({ example: null, nullable: true })
   reply_to_id: string | null;
+
+  @ApiPropertyOptional({ type: ReplyToData, nullable: true })
+  reply_to: ReplyToData | null;
 
   @ApiProperty({ example: false })
   is_edited: boolean;
