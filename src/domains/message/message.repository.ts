@@ -56,7 +56,6 @@ export class MessageRepository implements IMessageRepository {
     let query = this.db
       .knex('messages')
       .where({ conversation_id: conversationId })
-      .whereNull('deleted_at')
       .orderBy('created_at', 'desc')
       .limit(limit);
 
@@ -88,7 +87,8 @@ export class MessageRepository implements IMessageRepository {
 
     return messages.map((m) => ({
       ...m,
-      attachments: attachmentsByMessageId[m.id] ?? [],
+      content: m.deleted_at ? '' : m.content,
+      attachments: m.deleted_at ? [] : (attachmentsByMessageId[m.id] ?? []),
     })) as Message[];
   }
 
