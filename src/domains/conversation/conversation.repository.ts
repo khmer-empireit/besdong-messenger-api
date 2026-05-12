@@ -41,7 +41,16 @@ export class ConversationRepository implements IConversationRepository {
       .knex('conversations as c')
       .join('participants as p', 'p.conversation_id', 'c.id')
       .where('p.user_id', userId)
-      .select('c.*')
+      .select(
+        'c.*',
+        'p.last_read_at',
+        this.db.knex.raw(`(
+          SELECT COUNT(*)::int FROM messages m
+          WHERE m.conversation_id = c.id
+            AND m.deleted_at IS NULL
+            AND (p.last_read_at IS NULL OR m.created_at > p.last_read_at)
+        ) AS unread_count`),
+      )
       .orderBy('c.updated_at', 'desc') as Promise<Conversation[]>;
   }
 

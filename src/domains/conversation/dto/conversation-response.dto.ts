@@ -41,6 +41,12 @@ class ConversationData {
 
   @ApiProperty()
   updated_at: Date;
+
+  @ApiProperty({ example: 3, description: 'Number of unread messages for the requesting user' })
+  unread_count: number;
+
+  @ApiProperty({ nullable: true, description: 'When the requesting user last read this conversation' })
+  last_read_at: Date | null;
 }
 
 class ConversationDetailData extends ConversationData {
