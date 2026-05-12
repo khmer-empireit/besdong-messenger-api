@@ -40,11 +40,11 @@ const MAX_SIZE: Record<FileCategory, number> = {
 
 const MAX_SIZE_IMAGE_ORIGINAL = 5 * 1024 * 1024; // 5 MB for uncompressed images
 
-const IMAGE_DIMENSIONS: Record<UploadType, { width: number; height: number; fit: 'cover' | 'inside' }> = {
-  avatar:       { width: 500,  height: 500,  fit: 'cover'  },
-  group_avatar: { width: 500,  height: 500,  fit: 'cover'  },
-  attachment:   { width: 2048, height: 2048, fit: 'inside' },
-  story:        { width: 1080, height: 1920, fit: 'cover'  },
+const IMAGE_DIMENSIONS: Record<UploadType, { width: number; height: number }> = {
+  avatar:       { width: 500,  height: 500  },
+  group_avatar: { width: 500,  height: 500  },
+  attachment:   { width: 2048, height: 2048 },
+  story:        { width: 1080, height: 1920 },
 };
 
 const MIME_TO_EXT: Record<string, string> = {
@@ -134,12 +134,12 @@ export class UploadService {
     type: UploadType,
     mode: UploadMode,
   ) {
-    const { width, height, fit } = IMAGE_DIMENSIONS[type];
+    const { width, height } = IMAGE_DIMENSIONS[type];
 
     let result: { data: Buffer; info: sharp.OutputInfo };
     if (mode === 'compressed') {
       result = await sharp(file.buffer)
-        .resize(width, height, { fit, withoutEnlargement: true })
+        .resize(width, height, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 85 })
         .toBuffer({ resolveWithObject: true });
     } else {
