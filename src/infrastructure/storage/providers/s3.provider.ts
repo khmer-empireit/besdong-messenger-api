@@ -14,8 +14,9 @@ export class S3StorageProvider implements IStorageProvider {
     this.cdnUrl = this.config.get<string>('STORAGE_CDN_URL')!;
 
     this.client = new S3Client({
-      region: this.config.get<string>('STORAGE_REGION', 'auto'),
+      region: this.config.get<string>('STORAGE_REGION', 'us-east-1'),
       endpoint: this.config.get<string>('STORAGE_ENDPOINT'),
+      forcePathStyle: true,
       credentials: {
         accessKeyId: this.config.get<string>('STORAGE_ACCESS_KEY')!,
         secretAccessKey: this.config.get<string>('STORAGE_SECRET_KEY')!,
