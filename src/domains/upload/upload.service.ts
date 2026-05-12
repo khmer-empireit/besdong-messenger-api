@@ -140,7 +140,7 @@ export class UploadService {
     if (mode === 'compressed') {
       result = await sharp(file.buffer)
         .resize(width, height, { fit: 'cover', position: 'center', withoutEnlargement: true })
-        .webp({ quality: 85 })
+        .jpeg({ quality: 85 })
         .toBuffer({ resolveWithObject: true });
     } else {
       result = await sharp(file.buffer).toBuffer({ resolveWithObject: true });
