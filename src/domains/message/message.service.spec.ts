@@ -3,6 +3,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { MessageService } from './message.service';
 import { MessageRepository } from './message.repository';
 import { ConversationRepository } from '../conversation/conversation.repository';
+import { BlockRepository } from '../block/block.repository';
 
 const mockParticipant = {
   conversation_id: 'conv-uuid-1',
@@ -26,10 +27,21 @@ const mockMessage = {
   created_at: new Date('2026-01-01'),
 };
 
+const mockConversation = {
+  id: 'conv-uuid-1',
+  type: 'direct' as const,
+  name: null,
+  avatar_url: null,
+  created_by: 'user-uuid-1',
+  created_at: new Date('2026-01-01'),
+  updated_at: new Date('2026-01-01'),
+};
+
 describe('MessageService', () => {
   let service: MessageService;
   let repo: jest.Mocked<MessageRepository>;
   let convRepo: jest.Mocked<ConversationRepository>;
+  let blockRepo: jest.Mocked<BlockRepository>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -50,7 +62,15 @@ describe('MessageService', () => {
           provide: ConversationRepository,
           useValue: {
             getParticipant: jest.fn(),
+            getParticipants: jest.fn(),
+            findById: jest.fn(),
             update: jest.fn(),
+          },
+        },
+        {
+          provide: BlockRepository,
+          useValue: {
+            isBlockedEither: jest.fn(),
           },
         },
       ],
@@ -59,10 +79,17 @@ describe('MessageService', () => {
     service = module.get(MessageService);
     repo = module.get(MessageRepository);
     convRepo = module.get(ConversationRepository);
+    blockRepo = module.get(BlockRepository);
 
     repo.softDelete.mockResolvedValue(undefined);
     repo.updateLastRead.mockResolvedValue(undefined);
     convRepo.update.mockResolvedValue({} as any);
+    convRepo.findById.mockResolvedValue(mockConversation);
+    convRepo.getParticipants.mockResolvedValue([
+      { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-1', role: 'member', joined_at: new Date(), muted_until: null, last_read_at: null },
+      { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-2', role: 'member', joined_at: new Date(), muted_until: null, last_read_at: null },
+    ]);
+    blockRepo.isBlockedEither.mockResolvedValue(false);
   });
 
   // ── send ──────────────────────────────────────────────────────────────────
@@ -96,6 +123,14 @@ describe('MessageService', () => {
       convRepo.getParticipant.mockResolvedValue(undefined);
 
       await expect(service.send('conv-uuid-1', 'stranger-id', { content: 'Hi' })).rejects.toThrow(ForbiddenException);
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when either party has blocked the other in a direct conversation', async () => {
+      convRepo.getParticipant.mockResolvedValue(mockParticipant);
+      blockRepo.isBlockedEither.mockResolvedValue(true);
+
+      await expect(service.send('conv-uuid-1', 'user-uuid-1', { content: 'Hi' })).rejects.toThrow(ForbiddenException);
       expect(repo.create).not.toHaveBeenCalled();
     });
   });
