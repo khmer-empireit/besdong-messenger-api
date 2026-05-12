@@ -68,7 +68,7 @@ class MessageData {
 }
 
 class MessageActionData {
-  @ApiProperty({ example: 'Message deleted' })
+  @ApiProperty({ example: 'Success' })
   message: string;
 }
 
