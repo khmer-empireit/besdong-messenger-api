@@ -41,6 +41,12 @@ export class MessageRepository implements IMessageRepository {
         msg.attachments = [];
       }
 
+      msg.reply_to = msg.reply_to_id
+        ? await trx('messages').where({ id: msg.reply_to_id }).select('id', 'sender_id', 'content', 'type', 'deleted_at').first().then((r) =>
+            r ? { id: r.id, sender_id: r.sender_id, content: r.deleted_at ? '' : r.content, type: r.type } : null,
+          )
+        : null;
+
       return msg as Message;
     });
   }
@@ -49,6 +55,11 @@ export class MessageRepository implements IMessageRepository {
     const msg = await this.db.knex('messages').where({ id }).first();
     if (!msg) return undefined;
     msg.attachments = await this.db.knex('message_attachments').where({ message_id: id }).orderBy('created_at', 'asc');
+    msg.reply_to = msg.reply_to_id
+      ? await this.db.knex('messages').where({ id: msg.reply_to_id }).select('id', 'sender_id', 'content', 'type', 'deleted_at').first().then((r) =>
+          r ? { id: r.id, sender_id: r.sender_id, content: r.deleted_at ? '' : r.content, type: r.type } : null,
+        )
+      : null;
     return msg as Message;
   }
 
@@ -85,10 +96,20 @@ export class MessageRepository implements IMessageRepository {
       {} as Record<string, typeof attachments>,
     );
 
+    const replyToIds = [...new Set(messages.map((m) => m.reply_to_id).filter(Boolean))];
+    const replyToMap: Record<string, any> = {};
+    if (replyToIds.length > 0) {
+      const replies = await this.db.knex('messages').whereIn('id', replyToIds).select('id', 'sender_id', 'content', 'type', 'deleted_at');
+      for (const r of replies) {
+        replyToMap[r.id] = { id: r.id, sender_id: r.sender_id, content: r.deleted_at ? '' : r.content, type: r.type };
+      }
+    }
+
     return messages.map((m) => ({
       ...m,
       content: m.deleted_at ? '' : m.content,
       attachments: m.deleted_at ? [] : (attachmentsByMessageId[m.id] ?? []),
+      reply_to: m.reply_to_id ? (replyToMap[m.reply_to_id] ?? null) : null,
     })) as Message[];
   }
 
