@@ -22,6 +22,12 @@ export interface ReplyToMessage {
   type: MessageType;
 }
 
+export interface ReactionSummary {
+  emoji: string;
+  count: number;
+  reacted_by_me: boolean;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -35,4 +41,5 @@ export interface Message {
   deleted_at: Date | null;
   created_at: Date;
   attachments?: MessageAttachment[];
+  reactions?: ReactionSummary[];
 }

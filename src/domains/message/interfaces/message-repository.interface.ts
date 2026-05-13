@@ -11,7 +11,7 @@ export interface IMessageRepository {
     attachments?: AttachmentInputDto[];
   }): Promise<Message>;
   findById(id: string): Promise<Message | undefined>;
-  list(conversationId: string, cursor?: string, limit?: number): Promise<Message[]>;
+  list(conversationId: string, cursor?: string, userId?: string, limit?: number): Promise<Message[]>;
   update(id: string, data: { content: string; is_edited: boolean; edited_at: Date }): Promise<Message>;
   softDelete(id: string): Promise<void>;
   updateLastRead(conversationId: string, userId: string): Promise<void>;
