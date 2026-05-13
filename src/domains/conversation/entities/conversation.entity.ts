@@ -1,6 +1,10 @@
+import { ConversationType } from '../../../shared/enums';
+
+export { ConversationType };
+
 export interface Conversation {
   id: string;
-  type: 'direct' | 'group';
+  type: ConversationType;
   name: string | null;
   avatar_url: string | null;
   created_by: string | null;

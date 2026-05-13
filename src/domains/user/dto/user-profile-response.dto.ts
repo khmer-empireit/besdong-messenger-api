@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { UserRole } from '../../../shared/enums';
 
 class UserProfileData {
   @ApiProperty({ example: 'a1000000-0000-0000-0000-000000000001' })
@@ -25,8 +26,8 @@ class UserProfileData {
   @ApiPropertyOptional({ example: '1999-05-08', nullable: true })
   dob: string | null;
 
-  @ApiProperty({ enum: ['user', 'admin'], example: 'user' })
-  role: string;
+  @ApiProperty({ enum: UserRole, example: UserRole.User })
+  role: UserRole;
 
   @ApiProperty({ example: true })
   is_active: boolean;

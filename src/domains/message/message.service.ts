@@ -6,6 +6,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { ForwardMessageDto } from './dto/forward-message.dto';
 import { AddReactionDto } from './dto/add-reaction.dto';
+import { ConversationType, MessageType } from '../../shared/enums';
 
 @Injectable()
 export class MessageService {
@@ -19,7 +20,7 @@ export class MessageService {
     await this.assertParticipant(conversationId, userId);
 
     const conv = await this.convRepo.findById(conversationId);
-    if (conv?.type === 'direct') {
+    if (conv?.type === ConversationType.Direct) {
       const participants = await this.convRepo.getParticipants(conversationId);
       const otherId = participants.find((p) => p.user_id !== userId)?.user_id;
       if (otherId && await this.blockRepo.isBlockedEither(userId, otherId)) {
@@ -27,9 +28,9 @@ export class MessageService {
       }
     }
 
-    const type = dto.type ?? 'text';
+    const type = dto.type ?? MessageType.Text;
 
-    if (type === 'text') {
+    if (type === MessageType.Text) {
       if (!dto.content || dto.content.trim().length === 0) {
         throw new BadRequestException('content is required for text messages');
       }

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ConversationType, ParticipantRole } from '../../../shared/enums';
 
 class ParticipantData {
   @ApiProperty({ example: 'uuid' })
@@ -7,8 +8,8 @@ class ParticipantData {
   @ApiProperty({ example: 'uuid' })
   user_id: string;
 
-  @ApiProperty({ enum: ['owner', 'admin', 'member'], example: 'member' })
-  role: string;
+  @ApiProperty({ enum: ParticipantRole, example: ParticipantRole.Member })
+  role: ParticipantRole;
 
   @ApiProperty()
   joined_at: Date;
@@ -24,8 +25,8 @@ class ConversationData {
   @ApiProperty({ example: 'uuid' })
   id: string;
 
-  @ApiProperty({ enum: ['direct', 'group'], example: 'direct' })
-  type: string;
+  @ApiProperty({ enum: ConversationType, example: ConversationType.Direct })
+  type: ConversationType;
 
   @ApiProperty({ example: null, nullable: true })
   name: string | null;

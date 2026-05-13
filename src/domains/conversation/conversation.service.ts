@@ -6,6 +6,7 @@ import { AddMembersDto } from './dto/add-members.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { MuteConversationDto } from './dto/mute-conversation.dto';
 import { UserRepository } from '../user/user.repository';
+import { ConversationType, ParticipantRole } from '../../shared/enums';
 
 @Injectable()
 export class ConversationService {
@@ -24,7 +25,7 @@ export class ConversationService {
       throw new BadRequestException(`User(s) not found: ${missingUsers.join(', ')}`);
     }
 
-    if (dto.type === 'direct') {
+    if (dto.type === ConversationType.Direct) {
       if (dto.member_ids.length !== 1) {
         throw new BadRequestException('Direct conversation requires exactly one other user');
       }
@@ -32,21 +33,21 @@ export class ConversationService {
       const existing = await this.repo.findDirectBetween(userId, otherId);
       if (existing) return existing;
 
-      const conv = await this.repo.create({ type: 'direct', created_by: userId });
+      const conv = await this.repo.create({ type: ConversationType.Direct, created_by: userId });
       await Promise.all([
-        this.repo.addParticipant({ conversation_id: conv.id, user_id: userId, role: 'owner' }),
-        this.repo.addParticipant({ conversation_id: conv.id, user_id: otherId, role: 'member' }),
+        this.repo.addParticipant({ conversation_id: conv.id, user_id: userId, role: ParticipantRole.Owner }),
+        this.repo.addParticipant({ conversation_id: conv.id, user_id: otherId, role: ParticipantRole.Member }),
       ]);
       return conv;
     }
 
     if (!dto.name) throw new BadRequestException('Group conversations require a name');
 
-    const conv = await this.repo.create({ type: 'group', name: dto.name, created_by: userId });
+    const conv = await this.repo.create({ type: ConversationType.Group, name: dto.name, created_by: userId });
     const memberInserts = [
-      this.repo.addParticipant({ conversation_id: conv.id, user_id: userId, role: 'owner' }),
+      this.repo.addParticipant({ conversation_id: conv.id, user_id: userId, role: ParticipantRole.Owner }),
       ...dto.member_ids.map((id) =>
-        this.repo.addParticipant({ conversation_id: conv.id, user_id: id, role: 'member' }),
+        this.repo.addParticipant({ conversation_id: conv.id, user_id: id, role: ParticipantRole.Member }),
       ),
     ];
     await Promise.all(memberInserts);
@@ -68,19 +69,19 @@ export class ConversationService {
   async update(conversationId: string, userId: string, dto: UpdateConversationDto) {
     const conv = await this.repo.findById(conversationId);
     if (!conv) throw new NotFoundException('Conversation not found');
-    if (conv.type !== 'group') throw new BadRequestException('Only group conversations can be updated');
-    await this.assertRole(conversationId, userId, ['owner', 'admin']);
+    if (conv.type !== ConversationType.Group) throw new BadRequestException('Only group conversations can be updated');
+    await this.assertRole(conversationId, userId, [ParticipantRole.Owner, ParticipantRole.Admin]);
     return this.repo.update(conversationId, { ...dto, updated_at: new Date() });
   }
 
   async addMembers(conversationId: string, userId: string, dto: AddMembersDto) {
     const conv = await this.repo.findById(conversationId);
     if (!conv) throw new NotFoundException('Conversation not found');
-    if (conv.type !== 'group') throw new BadRequestException('Cannot add members to a direct conversation');
-    await this.assertRole(conversationId, userId, ['owner', 'admin']);
+    if (conv.type !== ConversationType.Group) throw new BadRequestException('Cannot add members to a direct conversation');
+    await this.assertRole(conversationId, userId, [ParticipantRole.Owner, ParticipantRole.Admin]);
     await Promise.all(
       dto.user_ids.map((id) =>
-        this.repo.addParticipant({ conversation_id: conversationId, user_id: id, role: 'member' }),
+        this.repo.addParticipant({ conversation_id: conversationId, user_id: id, role: ParticipantRole.Member }),
       ),
     );
     return { message: 'Members added' };
@@ -89,13 +90,13 @@ export class ConversationService {
   async updateMemberRole(conversationId: string, requesterId: string, targetUserId: string, dto: UpdateMemberRoleDto) {
     const conv = await this.repo.findById(conversationId);
     if (!conv) throw new NotFoundException('Conversation not found');
-    if (conv.type !== 'group') throw new BadRequestException('Only group conversations have roles');
+    if (conv.type !== ConversationType.Group) throw new BadRequestException('Only group conversations have roles');
 
-    await this.assertRole(conversationId, requesterId, ['owner']);
+    await this.assertRole(conversationId, requesterId, [ParticipantRole.Owner]);
 
     const target = await this.repo.getParticipant(conversationId, targetUserId);
     if (!target) throw new NotFoundException('Member not found in this conversation');
-    if (target.role === 'owner') throw new ForbiddenException('Cannot change the owner\'s role');
+    if (target.role === ParticipantRole.Owner) throw new ForbiddenException('Cannot change the owner\'s role');
 
     await this.repo.updateParticipantRole(conversationId, targetUserId, dto.role);
     return { message: 'Role updated' };
@@ -104,16 +105,16 @@ export class ConversationService {
   async removeMember(conversationId: string, requesterId: string, targetUserId: string) {
     const conv = await this.repo.findById(conversationId);
     if (!conv) throw new NotFoundException('Conversation not found');
-    if (conv.type !== 'group') throw new BadRequestException('Cannot remove members from a direct conversation');
+    if (conv.type !== ConversationType.Group) throw new BadRequestException('Cannot remove members from a direct conversation');
 
     if (requesterId !== targetUserId) {
       const requester = await this.repo.getParticipant(conversationId, requesterId);
-      if (!requester || !['owner', 'admin'].includes(requester.role)) throw new ForbiddenException('Insufficient permissions');
+      if (!requester || ![ParticipantRole.Owner, ParticipantRole.Admin].includes(requester.role)) throw new ForbiddenException('Insufficient permissions');
 
       const target = await this.repo.getParticipant(conversationId, targetUserId);
       if (!target) throw new NotFoundException('Member not found in this conversation');
-      if (target.role === 'owner') throw new ForbiddenException('Cannot remove the owner');
-      if (target.role === 'admin' && requester.role !== 'owner') throw new ForbiddenException('Only the owner can remove an admin');
+      if (target.role === ParticipantRole.Owner) throw new ForbiddenException('Cannot remove the owner');
+      if (target.role === ParticipantRole.Admin && requester.role !== ParticipantRole.Owner) throw new ForbiddenException('Only the owner can remove an admin');
     }
 
     await this.repo.removeParticipant(conversationId, targetUserId);
@@ -138,7 +139,7 @@ export class ConversationService {
     if (!p) throw new ForbiddenException('Not a member of this conversation');
   }
 
-  private async assertRole(conversationId: string, userId: string, roles: string[]) {
+  private async assertRole(conversationId: string, userId: string, roles: ParticipantRole[]) {
     const p = await this.repo.getParticipant(conversationId, userId);
     if (!p || !roles.includes(p.role)) throw new ForbiddenException('Insufficient permissions');
   }

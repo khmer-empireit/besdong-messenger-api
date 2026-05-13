@@ -3,13 +3,14 @@ import { DbService } from '../../infrastructure/database/db.service';
 import { IConversationRepository } from './interfaces/conversation-repository.interface';
 import { Conversation } from './entities/conversation.entity';
 import { Participant } from './entities/participant.entity';
+import { ConversationType, ParticipantRole } from '../../shared/enums';
 
 @Injectable()
 export class ConversationRepository implements IConversationRepository {
   constructor(private db: DbService) {}
 
   async create(data: {
-    type: 'direct' | 'group';
+    type: ConversationType;
     name?: string;
     avatar_url?: string;
     created_by: string;
@@ -31,7 +32,7 @@ export class ConversationRepository implements IConversationRepository {
       .join('participants as p2', function () {
         this.on('p2.conversation_id', 'c.id').andOnVal('p2.user_id', userB);
       })
-      .where('c.type', 'direct')
+      .where('c.type', ConversationType.Direct)
       .select('c.*')
       .first() as Promise<Conversation | undefined>;
   }
@@ -65,12 +66,12 @@ export class ConversationRepository implements IConversationRepository {
   async addParticipant(data: {
     conversation_id: string;
     user_id: string;
-    role?: 'owner' | 'admin' | 'member';
+    role?: ParticipantRole;
   }): Promise<void> {
     await this.db.knex('participants').insert(data);
   }
 
-  async updateParticipantRole(conversationId: string, userId: string, role: 'admin' | 'member'): Promise<void> {
+  async updateParticipantRole(conversationId: string, userId: string, role: ParticipantRole.Admin | ParticipantRole.Member): Promise<void> {
     await this.db.knex('participants').where({ conversation_id: conversationId, user_id: userId }).update({ role });
   }
 

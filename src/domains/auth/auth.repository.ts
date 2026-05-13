@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DbService } from '../../infrastructure/database/db.service';
+import { AuthProvider } from '../../shared/enums';
 
 @Injectable()
 export class AuthRepository {
@@ -52,7 +53,7 @@ export class AuthRepository {
 
       await trx('user_identities').insert({
         user_id: user.id,
-        provider: 'local',
+        provider: AuthProvider.Local,
         email: data.email,
         password_hash: data.password_hash,
       });
@@ -125,7 +126,7 @@ export class AuthRepository {
   async updatePasswordHash(userId: string, passwordHash: string) {
     return this.db
       .knex('user_identities')
-      .where({ user_id: userId, provider: 'local' })
+      .where({ user_id: userId, provider: AuthProvider.Local })
       .update({ password_hash: passwordHash });
   }
 

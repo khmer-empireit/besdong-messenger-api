@@ -1,11 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MessageType, AttachmentType } from '../../../shared/enums';
 
 class AttachmentData {
   @ApiProperty({ example: 'uuid' })
   id: string;
 
-  @ApiProperty({ enum: ['image', 'file', 'audio', 'video'] })
-  type: string;
+  @ApiProperty({ enum: AttachmentType })
+  type: AttachmentType;
 
   @ApiProperty({ example: 'https://cdn.example.com/attachments/file.jpg' })
   url: string;
@@ -48,8 +49,8 @@ class ReplyToData {
   @ApiProperty({ example: 'Hello!' })
   content: string;
 
-  @ApiProperty({ enum: ['text', 'image', 'file', 'audio', 'call_log', 'system'] })
-  type: string;
+  @ApiProperty({ enum: MessageType })
+  type: MessageType;
 }
 
 class ReactionData {
@@ -76,8 +77,8 @@ class MessageData {
   @ApiProperty({ example: 'Hello!' })
   content: string;
 
-  @ApiProperty({ enum: ['text', 'image', 'file', 'audio', 'call_log', 'system'], example: 'text' })
-  type: string;
+  @ApiProperty({ enum: MessageType, example: MessageType.Text })
+  type: MessageType;
 
   @ApiProperty({ example: null, nullable: true })
   reply_to_id: string | null;

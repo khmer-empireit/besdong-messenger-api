@@ -1,12 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsArray, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { ConversationType } from '../../../shared/enums';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class CreateConversationDto {
-  @ApiProperty({ enum: ['direct', 'group'] })
-  @IsIn(['direct', 'group'])
-  type: 'direct' | 'group';
+  @ApiProperty({ enum: ConversationType })
+  @IsEnum(ConversationType)
+  type: ConversationType;
 
   @ApiProperty({
     example: ['uuid-1'],

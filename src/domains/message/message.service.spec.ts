@@ -4,11 +4,12 @@ import { MessageService } from './message.service';
 import { MessageRepository } from './message.repository';
 import { ConversationRepository } from '../conversation/conversation.repository';
 import { BlockRepository } from '../block/block.repository';
+import { ConversationType, MessageType, ParticipantRole } from '../../shared/enums';
 
 const mockParticipant = {
   conversation_id: 'conv-uuid-1',
   user_id: 'user-uuid-1',
-  role: 'member' as const,
+  role: ParticipantRole.Member,
   joined_at: new Date('2026-01-01'),
   muted_until: null,
   last_read_at: null,
@@ -19,7 +20,7 @@ const mockMessage = {
   conversation_id: 'conv-uuid-1',
   sender_id: 'user-uuid-1',
   content: 'Hello!',
-  type: 'text' as const,
+  type: MessageType.Text,
   reply_to_id: null,
   forwarded_from_id: null,
   is_edited: false,
@@ -30,7 +31,7 @@ const mockMessage = {
 
 const mockConversation = {
   id: 'conv-uuid-1',
-  type: 'direct' as const,
+  type: ConversationType.Direct,
   name: null,
   avatar_url: null,
   created_by: 'user-uuid-1',
@@ -91,8 +92,8 @@ describe('MessageService', () => {
     convRepo.update.mockResolvedValue({} as any);
     convRepo.findById.mockResolvedValue(mockConversation);
     convRepo.getParticipants.mockResolvedValue([
-      { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-1', role: 'member', joined_at: new Date(), muted_until: null, last_read_at: null },
-      { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-2', role: 'member', joined_at: new Date(), muted_until: null, last_read_at: null },
+      { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-1', role: ParticipantRole.Member, joined_at: new Date(), muted_until: null, last_read_at: null },
+      { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-2', role: ParticipantRole.Member, joined_at: new Date(), muted_until: null, last_read_at: null },
     ]);
     blockRepo.isBlockedEither.mockResolvedValue(false);
   });

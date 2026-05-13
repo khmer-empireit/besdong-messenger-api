@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UserRepository } from './user.repository';
+import { UserRole } from '../../shared/enums';
 
 const mockUser = {
   id: 'user-uuid-1',
@@ -12,7 +13,7 @@ const mockUser = {
   avatar_url: null,
   bio: null,
   dob: null,
-  role: 'user' as const,
+  role: UserRole.User,
   is_active: true,
   is_verified: false,
   is_online: false,
