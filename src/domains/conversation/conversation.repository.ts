@@ -95,6 +95,17 @@ export class ConversationRepository implements IConversationRepository {
       .where({ conversation_id: conversationId }) as Promise<Participant[]>;
   }
 
+  async getOfflineParticipantIds(conversationId: string, excludeUserId: string): Promise<string[]> {
+    const rows = await this.db
+      .knex('participants as p')
+      .join('users as u', 'u.id', 'p.user_id')
+      .where('p.conversation_id', conversationId)
+      .andWhere('p.user_id', '!=', excludeUserId)
+      .andWhere('u.is_online', false)
+      .select('p.user_id');
+    return rows.map((r: { user_id: string }) => r.user_id);
+  }
+
   async setMute(conversationId: string, userId: string, mutedUntil: Date | null): Promise<void> {
     await this.db
       .knex('participants')

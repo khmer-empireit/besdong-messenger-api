@@ -20,6 +20,9 @@ async function bootstrap() {
   // Serve local uploads as static files at /uploads/*
   app.useStaticAssets(path.resolve('./uploads'), { prefix: '/uploads' });
 
+  // Serve chat-client.html and firebase-messaging-sw.js for local dev/testing
+  app.useStaticAssets(path.resolve('.'), { prefix: '/', index: false });
+
   // `helmet()` can enable CSP/HSTS headers that force browsers to upgrade `http://` requests
   // to `https://` (breaking local Swagger assets when you run the server without TLS).
   // Keep the strict headers only in production.

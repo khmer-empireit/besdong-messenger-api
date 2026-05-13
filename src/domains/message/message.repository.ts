@@ -225,4 +225,23 @@ export class MessageRepository implements IMessageRepository {
       .where({ conversation_id: conversationId, user_id: userId })
       .update({ last_read_at: new Date() });
   }
+
+  async getUnreadCount(conversationId: string, userId: string): Promise<number> {
+    const participant = await this.db.knex('participants')
+      .where({ conversation_id: conversationId, user_id: userId })
+      .select('last_read_at')
+      .first();
+
+    let query = this.db.knex('messages')
+      .where({ conversation_id: conversationId })
+      .whereNot({ sender_id: userId })
+      .whereNull('deleted_at');
+
+    if (participant?.last_read_at) {
+      query = query.where('created_at', '>', participant.last_read_at);
+    }
+
+    const [{ count }] = await query.count('* as count');
+    return Number(count);
+  }
 }
