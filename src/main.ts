@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, VersioningType, Logger } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as path from 'path';
@@ -9,21 +9,13 @@ import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import { ResponseInterceptor } from './shared/interceptors/response.interceptor';
 import { RedisService } from './infrastructure/cache/redis.service';
 import { RedisIoAdapter } from './infrastructure/cache/redis-io.adapter';
+import { AppLogger } from './infrastructure/logger/logger.service';
 import helmet from 'helmet';
 
 async function bootstrap() {
-  const logger = new Logger('HTTP');
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(AppLogger));
   app.enableShutdownHooks();
-
-  app.use((req: any, res: any, next: any) => {
-    res.on('finish', () => {
-      if (res.statusCode >= 500) {
-        logger.error(`${req.method} ${req.originalUrl} ${res.statusCode}`);
-      }
-    });
-    next();
-  });
 
   // Serve local uploads as static files at /uploads/*
   app.useStaticAssets(path.resolve('./uploads'), { prefix: '/uploads' });

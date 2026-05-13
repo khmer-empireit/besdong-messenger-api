@@ -7,6 +7,7 @@ import * as crypto from 'crypto';
 import { AuthService } from './auth.service';
 import { AuthRepository } from './auth.repository';
 import { FirebaseService } from '../../infrastructure/firebase/firebase.service';
+import { AppLogger } from '../../infrastructure/logger/logger.service';
 
 const mockUser = {
   id: 'user-uuid-1',
@@ -102,6 +103,10 @@ describe('AuthService', () => {
         {
           provide: FirebaseService,
           useValue: { auth: { verifyIdToken: jest.fn() } },
+        },
+        {
+          provide: AppLogger,
+          useValue: { log: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() },
         },
       ],
     }).compile();
