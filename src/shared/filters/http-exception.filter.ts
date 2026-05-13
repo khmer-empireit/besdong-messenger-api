@@ -29,14 +29,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     let message: string;
     let errors: Record<string, string> = {};
+    let extra: Record<string, unknown> = {};
 
     if (Array.isArray(raw?.message)) {
       message = 'Validation failed';
       errors = this.parseValidationErrors(raw.message as string[]);
     } else if (typeof raw === 'string') {
       message = raw;
+    } else if (raw && typeof raw === 'object') {
+      const { message: rawMessage, ...rest } = raw as any;
+      message = rawMessage || 'Internal server error';
+      if (Object.keys(rest).length) extra = rest;
     } else {
-      message = raw?.message || 'Internal server error';
+      message = 'Internal server error';
     }
 
     const log = `${request.method} ${request.url} ${status} — ${message}`;
@@ -51,6 +56,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       statusCode: status,
       message,
       errors,
+      ...extra,
       path: request.url,
       timestamp: new Date().toISOString(),
     });

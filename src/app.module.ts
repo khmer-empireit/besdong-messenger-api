@@ -12,6 +12,7 @@ import { MessageModule } from './domains/message/message.module';
 import { ContactModule } from './domains/contact/contact.module';
 import { AdminModule } from './domains/admin/admin.module';
 import { BlockModule } from './domains/block/block.module';
+import { HealthModule } from './domains/health/health.module';
 import { validate } from './infrastructure/config/env.validation';
 
 @Module({
@@ -32,6 +33,7 @@ import { validate } from './infrastructure/config/env.validation';
     ContactModule,
     AdminModule,
     BlockModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
