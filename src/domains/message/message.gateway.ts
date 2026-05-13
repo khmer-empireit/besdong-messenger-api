@@ -11,8 +11,8 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MessageService } from './message.service';
+import { UserService } from '../user/user.service';
 import { ConversationRepository } from '../conversation/conversation.repository';
-import { DbService } from '../../infrastructure/database/db.service';
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/ws' })
 export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -23,8 +23,8 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     private jwt: JwtService,
     private config: ConfigService,
     private messageService: MessageService,
+    private userService: UserService,
     private convRepo: ConversationRepository,
-    private db: DbService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -36,7 +36,7 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
       });
       client.data.userId = payload.sub;
-      await this.setOnlineStatus(payload.sub, true);
+      await this.userService.setOnlineStatus(payload.sub, true);
       this.server.emit('user:status', { user_id: payload.sub, is_online: true, last_seen_at: null });
     } catch {
       client.disconnect();
@@ -47,7 +47,7 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     const userId = client.data.userId;
     if (!userId) return;
     const lastSeenAt = new Date();
-    await this.setOnlineStatus(userId, false, lastSeenAt);
+    await this.userService.setOnlineStatus(userId, false, lastSeenAt);
     this.server.emit('user:status', { user_id: userId, is_online: false, last_seen_at: lastSeenAt });
   }
 
@@ -181,9 +181,4 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     return type === 'Bearer' ? token : auth;
   }
 
-  private async setOnlineStatus(userId: string, isOnline: boolean, lastSeenAt?: Date) {
-    const update: Record<string, unknown> = { is_online: isOnline };
-    if (!isOnline && lastSeenAt) update.last_seen_at = lastSeenAt;
-    await this.db.knex('users').where({ id: userId }).update(update);
-  }
 }

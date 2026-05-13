@@ -70,4 +70,10 @@ export class UserRepository implements IUserRepository {
       .returning('*');
     return settings as UserSettings;
   }
+
+  async setOnlineStatus(userId: string, isOnline: boolean, lastSeenAt?: Date): Promise<void> {
+    const update: Record<string, unknown> = { is_online: isOnline };
+    if (!isOnline && lastSeenAt) update.last_seen_at = lastSeenAt;
+    await this.db.knex('users').where({ id: userId }).update(update);
+  }
 }
