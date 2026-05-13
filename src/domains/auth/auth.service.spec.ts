@@ -65,6 +65,7 @@ describe('AuthService', () => {
             findIdentityByProviderId: jest.fn(),
             updateProviderUserId: jest.fn(),
             findUserByUsername: jest.fn(),
+            findUserById: jest.fn().mockResolvedValue({ role: 'user' }),
             createLocalUser: jest.fn(),
             createOAuthUser: jest.fn(),
             createAuthToken: jest.fn(),

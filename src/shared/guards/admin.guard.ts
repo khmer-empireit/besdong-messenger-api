@@ -8,14 +8,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
-import { DbService } from '../../infrastructure/database/db.service';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
   constructor(
     private jwt: JwtService,
     private config: ConfigService,
-    private db: DbService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -23,7 +21,7 @@ export class AdminGuard implements CanActivate {
     const token = this.extractToken(request);
     if (!token) throw new UnauthorizedException();
 
-    let payload: { sub: string };
+    let payload: { sub: string; role?: string };
     try {
       payload = await this.jwt.verifyAsync(token, {
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
@@ -34,9 +32,7 @@ export class AdminGuard implements CanActivate {
 
     (request as any).user = payload;
 
-    const user = await this.db.knex('users').where({ id: payload.sub }).first();
-    if (!user) throw new UnauthorizedException();
-    if (user.role !== 'admin') throw new ForbiddenException('Admin access required');
+    if (payload.role !== 'admin') throw new ForbiddenException('Admin access required');
 
     return true;
   }
