@@ -5,6 +5,7 @@ import { MessageGateway } from './message.gateway';
 import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { ForwardMessageDto } from './dto/forward-message.dto';
+import { AddReactionDto } from './dto/add-reaction.dto';
 import { MessageResponseDto, MessageListResponseDto, MessageActionResponseDto } from './dto/message-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
@@ -86,6 +87,37 @@ export class MessageController {
     const msg = await this.messageService.forward(id, msgId, user.sub, dto);
     this.gateway.server.to(dto.target_conversation_id).emit('message:new', msg);
     return msg;
+  }
+
+  @Post(':id/messages/:msgId/reactions')
+  @ApiOperation({ summary: 'Add a reaction to a message' })
+  @ApiResponse({ status: 201, description: 'Updated reactions for the message' })
+  @ApiResponse({ status: 404, description: 'Message not found' })
+  async addReaction(
+    @Param('id') id: string,
+    @Param('msgId') msgId: string,
+    @CurrentUser() user: { sub: string },
+    @Body() dto: AddReactionDto,
+  ) {
+    const reactions = await this.messageService.addReaction(id, msgId, user.sub, dto);
+    this.gateway.broadcastReaction(id, msgId, reactions);
+    return reactions;
+  }
+
+  @Delete(':id/messages/:msgId/reactions/:emoji')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a reaction from a message' })
+  @ApiResponse({ status: 200, description: 'Updated reactions for the message' })
+  @ApiResponse({ status: 404, description: 'Message not found' })
+  async removeReaction(
+    @Param('id') id: string,
+    @Param('msgId') msgId: string,
+    @Param('emoji') emoji: string,
+    @CurrentUser() user: { sub: string },
+  ) {
+    const reactions = await this.messageService.removeReaction(id, msgId, user.sub, decodeURIComponent(emoji));
+    this.gateway.broadcastReaction(id, msgId, reactions);
+    return reactions;
   }
 
   @Patch(':id/read')

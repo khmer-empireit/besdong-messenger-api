@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DbService } from '../../infrastructure/database/db.service';
 import { IMessageRepository } from './interfaces/message-repository.interface';
-import { Message } from './entities/message.entity';
+import { Message, ReactionSummary } from './entities/message.entity';
 import { AttachmentInputDto } from './dto/send-message.dto';
 
 function pickForwardedFrom(r: any) {
@@ -82,7 +82,33 @@ export class MessageRepository implements IMessageRepository {
     return msg as Message;
   }
 
-  async list(conversationId: string, cursor?: string, limit = DEFAULT_LIMIT): Promise<Message[]> {
+  async addReaction(messageId: string, userId: string, emoji: string): Promise<void> {
+    await this.db.knex('message_reactions')
+      .insert({ message_id: messageId, user_id: userId, emoji })
+      .onConflict(['message_id', 'user_id', 'emoji'])
+      .ignore();
+  }
+
+  async removeReaction(messageId: string, userId: string, emoji: string): Promise<void> {
+    await this.db.knex('message_reactions').where({ message_id: messageId, user_id: userId, emoji }).delete();
+  }
+
+  async getReactionSummary(messageId: string, userId: string): Promise<ReactionSummary[]> {
+    const rows = await this.db.knex('message_reactions').where({ message_id: messageId }).select('emoji', 'user_id');
+    return this.aggregateReactions(rows, userId);
+  }
+
+  private aggregateReactions(rows: { emoji: string; user_id: string }[], userId: string): ReactionSummary[] {
+    const map: Record<string, { count: number; reacted_by_me: boolean }> = {};
+    for (const r of rows) {
+      if (!map[r.emoji]) map[r.emoji] = { count: 0, reacted_by_me: false };
+      map[r.emoji].count++;
+      if (r.user_id === userId) map[r.emoji].reacted_by_me = true;
+    }
+    return Object.entries(map).map(([emoji, v]) => ({ emoji, ...v }));
+  }
+
+  async list(conversationId: string, cursor?: string, userId?: string, limit = DEFAULT_LIMIT): Promise<Message[]> {
     let query = this.db
       .knex('messages')
       .where({ conversation_id: conversationId })
@@ -130,12 +156,20 @@ export class MessageRepository implements IMessageRepository {
       }
     }
 
+    const reactionRows = await this.db.knex('message_reactions').whereIn('message_id', messageIds).select('message_id', 'emoji', 'user_id');
+    const reactionsByMessageId: Record<string, { emoji: string; user_id: string }[]> = {};
+    for (const r of reactionRows) {
+      if (!reactionsByMessageId[r.message_id]) reactionsByMessageId[r.message_id] = [];
+      reactionsByMessageId[r.message_id].push(r);
+    }
+
     return messages.map((m) => ({
       ...m,
       content: m.deleted_at ? '' : m.content,
       attachments: m.deleted_at ? [] : (attachmentsByMessageId[m.id] ?? []),
       reply_to: m.reply_to_id ? (relatedMap[m.reply_to_id] ?? null) : null,
       forwarded_from: m.forwarded_from_id ? (relatedMap[m.forwarded_from_id] ?? null) : null,
+      reactions: this.aggregateReactions(reactionsByMessageId[m.id] ?? [], userId ?? ''),
     })) as Message[];
   }
 

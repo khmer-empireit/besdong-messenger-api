@@ -146,7 +146,7 @@ describe('MessageService', () => {
       const result = await service.list('conv-uuid-1', 'user-uuid-1');
 
       expect(result).toHaveLength(1);
-      expect(repo.list).toHaveBeenCalledWith('conv-uuid-1', undefined);
+      expect(repo.list).toHaveBeenCalledWith('conv-uuid-1', undefined, 'user-uuid-1');
     });
 
     it('passes cursor for pagination', async () => {
@@ -155,7 +155,7 @@ describe('MessageService', () => {
 
       await service.list('conv-uuid-1', 'user-uuid-1', 'msg-uuid-1');
 
-      expect(repo.list).toHaveBeenCalledWith('conv-uuid-1', 'msg-uuid-1');
+      expect(repo.list).toHaveBeenCalledWith('conv-uuid-1', 'msg-uuid-1', 'user-uuid-1');
     });
 
     it('throws ForbiddenException when user is not a member', async () => {
