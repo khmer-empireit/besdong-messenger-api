@@ -10,14 +10,18 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
 import { MessageService } from './message.service';
 import { UserService } from '../user/user.service';
 import { ConversationRepository } from '../conversation/conversation.repository';
+import { RedisService } from '../../infrastructure/cache/redis.service';
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/ws' })
 export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
+
+  private readonly limiters = new Map<string, RateLimiterRedis>();
 
   constructor(
     private jwt: JwtService,
@@ -25,6 +29,7 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     private messageService: MessageService,
     private userService: UserService,
     private convRepo: ConversationRepository,
+    private redis: RedisService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -59,6 +64,8 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     const userId = client.data.userId;
     if (!userId) return;
 
+    if (!await this.checkLimit(client, 'message:send', userId, 60, 60)) return;
+
     try {
       const msg = await this.messageService.send(data.conversation_id, userId, {
         content: data.content,
@@ -80,6 +87,8 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     const userId = client.data.userId;
     if (!userId) return;
 
+    if (!await this.checkLimit(client, 'message:read', userId, 60, 60)) return;
+
     try {
       await this.messageService.markRead(data.conversation_id, userId);
       const lastReadAt = new Date();
@@ -94,12 +103,15 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
   }
 
   @SubscribeMessage('typing:start')
-  onTypingStart(
+  async onTypingStart(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { conversation_id: string },
   ) {
     const userId = client.data.userId;
     if (!userId) return;
+
+    if (!await this.checkLimit(client, 'typing', userId, 10, 3)) return;
+
     client.to(data.conversation_id).emit('typing:indicator', {
       conversation_id: data.conversation_id,
       user_id: userId,
@@ -108,12 +120,15 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
   }
 
   @SubscribeMessage('typing:stop')
-  onTypingStop(
+  async onTypingStop(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { conversation_id: string },
   ) {
     const userId = client.data.userId;
     if (!userId) return;
+
+    if (!await this.checkLimit(client, 'typing', userId, 10, 3)) return;
+
     client.to(data.conversation_id).emit('typing:indicator', {
       conversation_id: data.conversation_id,
       user_id: userId,
@@ -128,6 +143,8 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
   ) {
     const userId = client.data.userId;
     if (!userId) return;
+
+    if (!await this.checkLimit(client, 'reaction', userId, 20, 60)) return;
 
     try {
       const reactions = await this.messageService.addReaction(data.conversation_id, data.message_id, userId, { emoji: data.emoji });
@@ -148,6 +165,8 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     const userId = client.data.userId;
     if (!userId) return;
 
+    if (!await this.checkLimit(client, 'reaction', userId, 20, 60)) return;
+
     try {
       const reactions = await this.messageService.removeReaction(data.conversation_id, data.message_id, userId, data.emoji);
       this.server.to(data.conversation_id).emit('message:reaction', {
@@ -166,6 +185,9 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
   ) {
     const userId = client.data.userId;
     if (!userId) return;
+
+    if (!await this.checkLimit(client, 'conversation:join', userId, 30, 60)) return;
+
     const p = await this.convRepo.getParticipant(data.conversation_id, userId);
     if (p) await client.join(data.conversation_id);
   }
@@ -174,11 +196,45 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     this.server.to(conversationId).emit('message:reaction', { message_id: messageId, reactions });
   }
 
+  private async checkLimit(
+    client: Socket,
+    event: string,
+    userId: string,
+    points: number,
+    duration: number,
+  ): Promise<boolean> {
+    const limiter = this.getOrCreateLimiter(event, points, duration);
+    try {
+      await limiter.consume(userId);
+      return true;
+    } catch (err) {
+      if (err instanceof RateLimiterRes) {
+        const retryAfter = Math.ceil(err.msBeforeNext / 1000);
+        client.emit('error', { event, message: `Rate limit exceeded — retry in ${retryAfter}s` });
+      }
+      return false;
+    }
+  }
+
+  private getOrCreateLimiter(event: string, points: number, duration: number): RateLimiterRedis {
+    if (!this.limiters.has(event)) {
+      this.limiters.set(
+        event,
+        new RateLimiterRedis({
+          storeClient: this.redis.client,
+          keyPrefix: `ws_rl_${event}`,
+          points,
+          duration,
+        }),
+      );
+    }
+    return this.limiters.get(event)!;
+  }
+
   private extractToken(client: Socket): string | undefined {
     const auth = client.handshake.auth?.token || client.handshake.headers?.authorization;
     if (!auth) return undefined;
     const [type, token] = auth.split(' ');
     return type === 'Bearer' ? token : auth;
   }
-
 }

@@ -4,10 +4,11 @@ import { ContactController } from './contact.controller';
 import { ContactService } from './contact.service';
 import { ContactRepository } from './contact.repository';
 import { UserModule } from '../user/user.module';
+import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
 
 @Module({
   imports: [JwtModule.register({}), UserModule],
   controllers: [ContactController],
-  providers: [ContactService, ContactRepository],
+  providers: [ContactService, ContactRepository, RateLimitGuard],
 })
 export class ContactModule {}

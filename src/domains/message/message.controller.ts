@@ -8,6 +8,8 @@ import { ForwardMessageDto } from './dto/forward-message.dto';
 import { AddReactionDto } from './dto/add-reaction.dto';
 import { MessageResponseDto, MessageListResponseDto, MessageActionResponseDto } from './dto/message-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
+import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
+import { RateLimit } from '../../shared/decorators/rate-limit.decorator';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 
 @ApiTags('Messages')
@@ -21,10 +23,13 @@ export class MessageController {
   ) {}
 
   @Get(':id/messages')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(60, 60)
   @ApiOperation({ summary: 'List messages in a conversation (cursor-based pagination)' })
   @ApiQuery({ name: 'cursor', required: false, description: 'Message ID to paginate from' })
   @ApiResponse({ status: 200, type: MessageListResponseDto })
   @ApiResponse({ status: 403, description: 'Not a member' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   list(
     @Param('id') id: string,
     @CurrentUser() user: { sub: string },
@@ -34,9 +39,12 @@ export class MessageController {
   }
 
   @Post(':id/messages')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(60, 60)
   @ApiOperation({ summary: 'Send a message to a conversation' })
   @ApiResponse({ status: 201, type: MessageResponseDto })
   @ApiResponse({ status: 403, description: 'Not a member' })
+  @ApiResponse({ status: 429, description: 'Too many requests — max 60 messages/min' })
   send(
     @Param('id') id: string,
     @CurrentUser() user: { sub: string },
@@ -47,9 +55,12 @@ export class MessageController {
 
   @Patch(':id/messages/:msgId')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(20, 60)
   @ApiOperation({ summary: 'Edit a message' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   @ApiResponse({ status: 403, description: 'Not your message' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   edit(
     @Param('id') id: string,
     @Param('msgId') msgId: string,
@@ -61,9 +72,12 @@ export class MessageController {
 
   @Delete(':id/messages/:msgId')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(20, 60)
   @ApiOperation({ summary: 'Delete a message (soft delete)' })
   @ApiResponse({ status: 200, type: MessageActionResponseDto })
   @ApiResponse({ status: 403, description: 'Not your message' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   delete(
     @Param('id') id: string,
     @Param('msgId') msgId: string,
@@ -73,11 +87,14 @@ export class MessageController {
   }
 
   @Post(':id/messages/:msgId/forward')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(20, 60)
   @ApiOperation({ summary: 'Forward a message to another conversation' })
   @ApiResponse({ status: 201, type: MessageResponseDto })
   @ApiResponse({ status: 400, description: 'Message is deleted' })
   @ApiResponse({ status: 403, description: 'Not a member of source or target conversation' })
   @ApiResponse({ status: 404, description: 'Message not found' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async forward(
     @Param('id') id: string,
     @Param('msgId') msgId: string,
@@ -90,9 +107,12 @@ export class MessageController {
   }
 
   @Post(':id/messages/:msgId/reactions')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(60, 60)
   @ApiOperation({ summary: 'Add a reaction to a message' })
   @ApiResponse({ status: 201, description: 'Updated reactions for the message' })
   @ApiResponse({ status: 404, description: 'Message not found' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async addReaction(
     @Param('id') id: string,
     @Param('msgId') msgId: string,
@@ -106,9 +126,12 @@ export class MessageController {
 
   @Delete(':id/messages/:msgId/reactions/:emoji')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(60, 60)
   @ApiOperation({ summary: 'Remove a reaction from a message' })
   @ApiResponse({ status: 200, description: 'Updated reactions for the message' })
   @ApiResponse({ status: 404, description: 'Message not found' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async removeReaction(
     @Param('id') id: string,
     @Param('msgId') msgId: string,
@@ -122,8 +145,11 @@ export class MessageController {
 
   @Patch(':id/read')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(60, 60)
   @ApiOperation({ summary: 'Mark conversation as read (updates last_read_at)' })
   @ApiResponse({ status: 200, type: MessageActionResponseDto })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   markRead(@Param('id') id: string, @CurrentUser() user: { sub: string }) {
     return this.messageService.markRead(id, user.sub);
   }

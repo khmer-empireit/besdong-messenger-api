@@ -207,3 +207,5 @@ These are the next items to build, in order of production impact:
 - Health check: `GET /api/v1/health` — DB + Redis status, 200 or 503
 - Graceful shutdown: `app.enableShutdownHooks()` — clean exit on SIGTERM
 - Redis Socket.IO adapter: cross-instance WebSocket via Redis pub/sub (horizontal scale ready)
+- Rate limiting: all REST routes + WebSocket events, keyed by userId for authenticated requests
+
