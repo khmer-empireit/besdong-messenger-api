@@ -2,18 +2,21 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiParam,
   ApiQuery,
   ApiResponse,
   ApiTags,
@@ -21,6 +24,7 @@ import {
 import { UserService } from './user.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { SaveDeviceTokenDto } from './dto/save-device-token.dto';
 import {
   UserProfileResponseDto,
   UserProfileListResponseDto,
@@ -114,6 +118,35 @@ export class UserController {
   @ApiResponse({ status: 429, description: 'Too many requests — max 30 searches/min' })
   search(@Query('q') q: string) {
     return this.userService.search(q || '');
+  }
+
+  @Post('me/device-tokens')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(10, 60)
+  @ApiOperation({ summary: 'Register or update an FCM device token' })
+  @ApiResponse({ status: 200, description: 'Token saved' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  saveDeviceToken(
+    @CurrentUser() user: { sub: string },
+    @Body() dto: SaveDeviceTokenDto,
+  ) {
+    return this.userService.saveDeviceToken(user.sub, dto.token, dto.platform);
+  }
+
+  @Delete('me/device-tokens/:token')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(20, 60)
+  @ApiOperation({ summary: 'Unregister an FCM device token' })
+  @ApiParam({ name: 'token', description: 'FCM device token to unregister' })
+  @ApiResponse({ status: 200, description: 'Token removed' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  removeDeviceToken(
+    @CurrentUser() user: { sub: string },
+    @Param('token') token: string,
+  ) {
+    return this.userService.removeDeviceToken(user.sub, token);
   }
 
   @Get(':id')

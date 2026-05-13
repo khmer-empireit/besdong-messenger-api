@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <title>Besdong Chat</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -29,6 +31,7 @@
     #sidebar .label { font-size: 0.7rem; color: #78909c; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
     #sidebar input { width: 100%; background: #0f3460; border: 1px solid #1565c0; border-radius: 6px; padding: 7px 10px; color: #e0e0e0; font-size: 0.82rem; }
     #my-id { font-size: 0.7rem; color: #546e7a; word-break: break-all; line-height: 1.4; }
+    #push-status { font-size: 0.68rem; color: #546e7a; word-break: break-all; line-height: 1.4; }
     .divider { border: none; border-top: 1px solid #0f3460; }
 
     /* Chat */
@@ -154,6 +157,10 @@
     <hr class="divider" />
     <div class="label">My User ID</div>
     <div id="my-id">—</div>
+    <hr class="divider" />
+    <div class="label">Push Notifications</div>
+    <button class="btn btn-gray btn-full" id="pushBtn">Enable Push</button>
+    <div id="push-status">—</div>
   </div>
 
   <div id="chat-area">
@@ -228,6 +235,7 @@
   let pendingAttachment = null;
   let typingTimer = null;
   let replyToId = null;
+  let isTyping = false;
 
   const $ = id => document.getElementById(id);
   const fmtSize = b => b < 1024*1024 ? (b/1024).toFixed(1)+' KB' : (b/1024/1024).toFixed(1)+' MB';
@@ -687,6 +695,8 @@
 
     clearReply();
     $('messageInput').value = '';
+    clearTimeout(typingTimer);
+    isTyping = false;
   }
 
   $('reply-cancel').addEventListener('click', clearReply);
@@ -696,9 +706,15 @@
   $('messageInput').addEventListener('input', () => {
     if (!socket) return;
     const convId = $('conversationId').value.trim();
-    socket.emit('typing:start', { conversation_id: convId });
+    if (!isTyping) {
+      isTyping = true;
+      socket.emit('typing:start', { conversation_id: convId });
+    }
     clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => socket.emit('typing:stop', { conversation_id: convId }), 2000);
+    typingTimer = setTimeout(() => {
+      isTyping = false;
+      socket.emit('typing:stop', { conversation_id: convId });
+    }, 2000);
   });
 
   // ── Forward ────────────────────────────────────────────────────────────────
@@ -743,6 +759,67 @@
 
   document.addEventListener('click', () => {
     document.querySelectorAll('.emoji-picker.show').forEach(p => p.classList.remove('show'));
+  });
+
+  // ── Push Notifications ────────────────────────────────────────────────────
+
+  const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyAqVNsQz4EhURTGCBkVtlMulCRrqa5TX50',
+    authDomain: 'besdong-messenger-app.firebaseapp.com',
+    projectId: 'besdong-messenger-app',
+    storageBucket: 'besdong-messenger-app.firebasestorage.app',
+    messagingSenderId: '123828249605',
+    appId: '1:123828249605:web:d7d2635a38f1596a61686c',
+  };
+  const VAPID_KEY = 'BOKqYStAnMa1V2CdoxPNuergVVPkELK43znHIL90TNJcHHpUgjw-BYcPFY3dFUc_mSp57ibcn5Lend-6CbO3CYk';
+
+  $('pushBtn').addEventListener('click', async () => {
+    if (!token) return alert('Login first');
+    try {
+      $('push-status').textContent = 'Requesting permission…';
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        $('push-status').textContent = '✗ Permission denied';
+        return;
+      }
+
+      if (!('serviceWorker' in navigator)) {
+        $('push-status').textContent = '✗ Service workers not supported in this browser';
+        return;
+      }
+
+      $('push-status').textContent = 'Registering service worker…';
+      const swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+
+      if (!firebase.apps.length) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+      }
+      const messaging = firebase.messaging();
+
+      messaging.onMessage((payload) => {
+        const n = payload.notification || {};
+        sysMsg(`🔔 Push (foreground): ${n.title || ''} — ${n.body || ''}`);
+      });
+
+      $('push-status').textContent = 'Getting FCM token…';
+      const fcmToken = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+
+      $('push-status').textContent = 'Registering with server…';
+      const res = await fetch(`${API}/users/me/device-tokens`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: fcmToken, platform: 'web' }),
+      });
+      await res.json();
+
+      $('push-status').textContent = '✓ ' + fcmToken.slice(0, 24) + '…';
+      $('pushBtn').textContent = 'Push Enabled ✓';
+      $('pushBtn').className = 'btn btn-green btn-full';
+      sysMsg('🔔 Push notifications enabled — click "Leave Room" to go offline, then have another user send you a message');
+    } catch (e) {
+      $('push-status').textContent = '✗ ' + e.message;
+      console.error(e);
+    }
   });
 </script>
 </body>

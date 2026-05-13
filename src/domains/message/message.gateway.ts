@@ -111,7 +111,7 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     const userId = client.data.userId;
     if (!userId) return;
 
-    if (!await this.checkLimit(client, 'typing', userId, 10, 3)) return;
+    if (!await this.checkLimit(client, 'typing', userId, 20, 10)) return;
 
     client.to(data.conversation_id).emit('typing:indicator', {
       conversation_id: data.conversation_id,
@@ -128,7 +128,7 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     const userId = client.data.userId;
     if (!userId) return;
 
-    if (!await this.checkLimit(client, 'typing', userId, 10, 3)) return;
+    if (!await this.checkLimit(client, 'typing', userId, 20, 10)) return;
 
     client.to(data.conversation_id).emit('typing:indicator', {
       conversation_id: data.conversation_id,

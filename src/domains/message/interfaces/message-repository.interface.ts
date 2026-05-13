@@ -19,4 +19,5 @@ export interface IMessageRepository {
   removeReaction(messageId: string, userId: string, emoji: string): Promise<void>;
   getReactionSummary(messageId: string, userId: string): Promise<ReactionSummary[]>;
   forward(originalId: string, targetConversationId: string, senderId: string): Promise<Message>;
+  getUnreadCount(conversationId: string, userId: string): Promise<number>;
 }

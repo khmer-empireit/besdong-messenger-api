@@ -3,6 +3,7 @@ import { DbService } from '../../infrastructure/database/db.service';
 import { IUserRepository } from './interfaces/user-repository.interface';
 import { UserProfile } from './entities/user-profile.entity';
 import { UserSettings } from './entities/user-settings.entity';
+import { DevicePlatform } from '../../shared/enums';
 
 @Injectable()
 export class UserRepository implements IUserRepository {
@@ -75,5 +76,26 @@ export class UserRepository implements IUserRepository {
     const update: Record<string, unknown> = { is_online: isOnline };
     if (!isOnline && lastSeenAt) update.last_seen_at = lastSeenAt;
     await this.db.knex('users').where({ id: userId }).update(update);
+  }
+
+  async saveDeviceToken(userId: string, token: string, platform: DevicePlatform): Promise<void> {
+    await this.db
+      .knex('device_tokens')
+      .insert({ user_id: userId, token, platform })
+      .onConflict('token')
+      .merge({ user_id: userId });
+  }
+
+  async getDeviceTokens(userId: string): Promise<string[]> {
+    const rows = await this.db.knex('device_tokens').where({ user_id: userId }).select('token');
+    return rows.map((r: { token: string }) => r.token);
+  }
+
+  async removeDeviceToken(userId: string, token: string): Promise<void> {
+    await this.db.knex('device_tokens').where({ user_id: userId, token }).delete();
+  }
+
+  async purgeDeviceToken(token: string): Promise<void> {
+    await this.db.knex('device_tokens').where({ token }).delete();
   }
 }

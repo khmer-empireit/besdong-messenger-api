@@ -13,5 +13,6 @@ export interface IConversationRepository {
   removeParticipant(conversationId: string, userId: string): Promise<void>;
   getParticipant(conversationId: string, userId: string): Promise<Participant | undefined>;
   getParticipants(conversationId: string): Promise<Participant[]>;
+  getOfflineParticipantIds(conversationId: string, excludeUserId: string): Promise<string[]>;
   setMute(conversationId: string, userId: string, mutedUntil: Date | null): Promise<void>;
 }

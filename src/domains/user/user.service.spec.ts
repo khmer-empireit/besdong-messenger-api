@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UserRepository } from './user.repository';
-import { UserRole } from '../../shared/enums';
+import { DevicePlatform, UserRole } from '../../shared/enums';
 
 const mockUser = {
   id: 'user-uuid-1',
@@ -65,6 +65,10 @@ describe('UserService', () => {
             search: jest.fn(),
             getSettings: jest.fn(),
             updateSettings: jest.fn(),
+            saveDeviceToken: jest.fn(),
+            getDeviceTokens: jest.fn(),
+            removeDeviceToken: jest.fn(),
+            purgeDeviceToken: jest.fn(),
           },
         },
       ],
@@ -173,6 +177,49 @@ describe('UserService', () => {
       const result = await service.search('nobody');
 
       expect(result).toEqual([]);
+    });
+  });
+
+  // ── device tokens ─────────────────────────────────────────────────────────
+
+  describe('saveDeviceToken', () => {
+    it('delegates to repository', async () => {
+      repo.saveDeviceToken.mockResolvedValue(undefined);
+
+      await service.saveDeviceToken('user-uuid-1', 'fcm-token', DevicePlatform.Android);
+
+      expect(repo.saveDeviceToken).toHaveBeenCalledWith('user-uuid-1', 'fcm-token', DevicePlatform.Android);
+    });
+  });
+
+  describe('removeDeviceToken', () => {
+    it('delegates to repository', async () => {
+      repo.removeDeviceToken.mockResolvedValue(undefined);
+
+      await service.removeDeviceToken('user-uuid-1', 'fcm-token');
+
+      expect(repo.removeDeviceToken).toHaveBeenCalledWith('user-uuid-1', 'fcm-token');
+    });
+  });
+
+  describe('getDeviceTokens', () => {
+    it('returns token strings', async () => {
+      repo.getDeviceTokens.mockResolvedValue(['token-a', 'token-b']);
+
+      const result = await service.getDeviceTokens('user-uuid-1');
+
+      expect(result).toEqual(['token-a', 'token-b']);
+      expect(repo.getDeviceTokens).toHaveBeenCalledWith('user-uuid-1');
+    });
+  });
+
+  describe('purgeDeviceToken', () => {
+    it('delegates to repository without user ownership check', async () => {
+      repo.purgeDeviceToken.mockResolvedValue(undefined);
+
+      await service.purgeDeviceToken('stale-token');
+
+      expect(repo.purgeDeviceToken).toHaveBeenCalledWith('stale-token');
     });
   });
 
