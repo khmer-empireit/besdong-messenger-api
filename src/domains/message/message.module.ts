@@ -5,10 +5,12 @@ import { MessageService } from './message.service';
 import { MessageRepository } from './message.repository';
 import { MessageGateway } from './message.gateway';
 import { ConversationModule } from '../conversation/conversation.module';
+import { BlockModule } from '../block/block.module';
 
 @Module({
   imports: [
     ConversationModule,
+    BlockModule,
     JwtModule,
   ],
   controllers: [MessageController],

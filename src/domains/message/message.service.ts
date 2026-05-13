@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { MessageRepository } from './message.repository';
 import { ConversationRepository } from '../conversation/conversation.repository';
+import { BlockRepository } from '../block/block.repository';
 import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
 
@@ -9,10 +10,20 @@ export class MessageService {
   constructor(
     private repo: MessageRepository,
     private convRepo: ConversationRepository,
+    private blockRepo: BlockRepository,
   ) {}
 
   async send(conversationId: string, userId: string, dto: SendMessageDto) {
     await this.assertParticipant(conversationId, userId);
+
+    const conv = await this.convRepo.findById(conversationId);
+    if (conv?.type === 'direct') {
+      const participants = await this.convRepo.getParticipants(conversationId);
+      const otherId = participants.find((p) => p.user_id !== userId)?.user_id;
+      if (otherId && await this.blockRepo.isBlockedEither(userId, otherId)) {
+        throw new ForbiddenException('You cannot send messages to this user');
+      }
+    }
 
     const type = dto.type ?? 'text';
 
