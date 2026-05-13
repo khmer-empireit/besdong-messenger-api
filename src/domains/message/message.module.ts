@@ -7,6 +7,7 @@ import { MessageGateway } from './message.gateway';
 import { ConversationModule } from '../conversation/conversation.module';
 import { BlockModule } from '../block/block.module';
 import { UserModule } from '../user/user.module';
+import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
 
 @Module({
   imports: [
@@ -16,6 +17,6 @@ import { UserModule } from '../user/user.module';
     JwtModule,
   ],
   controllers: [MessageController],
-  providers: [MessageService, MessageRepository, MessageGateway],
+  providers: [MessageService, MessageRepository, MessageGateway, RateLimitGuard],
 })
 export class MessageModule {}

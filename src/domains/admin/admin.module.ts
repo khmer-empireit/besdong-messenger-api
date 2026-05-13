@@ -4,11 +4,12 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AdminRepository } from './admin.repository';
 import { AdminGuard } from '../../shared/guards/admin.guard';
+import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
 
 @Module({
   imports: [JwtModule.register({})],
   controllers: [AdminController],
-  providers: [AdminService, AdminRepository, AdminGuard],
+  providers: [AdminService, AdminRepository, AdminGuard, RateLimitGuard],
   exports: [AdminRepository],
 })
 export class AdminModule {}

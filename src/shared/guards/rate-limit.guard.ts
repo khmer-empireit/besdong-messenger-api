@@ -32,12 +32,13 @@ export class RateLimitGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const ip =
       (request.headers['x-forwarded-for'] as string)?.split(',')[0] ?? request.ip ?? 'unknown';
+    const key = (request as any).user?.sub ?? ip;
     const handlerKey = `${context.getClass().name}_${context.getHandler().name}`;
 
     const limiter = this.getOrCreateLimiter(handlerKey, options.points, options.duration);
 
     try {
-      await limiter.consume(ip);
+      await limiter.consume(key);
       return true;
     } catch (error) {
       if (error instanceof RateLimiterRes) {
