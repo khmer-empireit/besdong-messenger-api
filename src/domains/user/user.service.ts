@@ -39,6 +39,10 @@ export class UserService {
     return this.repo.search(query.trim());
   }
 
+  async setOnlineStatus(userId: string, isOnline: boolean, lastSeenAt?: Date): Promise<void> {
+    await this.repo.setOnlineStatus(userId, isOnline, lastSeenAt);
+  }
+
   async getPublicProfile(targetUserId: string, requesterId: string) {
     const user = await this.repo.findById(targetUserId);
     if (!user) throw new NotFoundException('User not found');
