@@ -60,6 +60,25 @@
     .msg-reply-preview .reply-sender { font-size: 0.75rem; font-weight: 700; color: #4fc3f7; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .msg-reply-preview .reply-content { font-size: 0.78rem; color: #b0bec5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+    /* Reactions */
+    .msg-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .reaction-pill { display: inline-flex; align-items: center; gap: 3px; background: #263238; border: 1px solid #37474f; border-radius: 12px; padding: 2px 8px; font-size: 0.8rem; cursor: pointer; transition: background 0.15s, border-color 0.15s; user-select: none; }
+    .reaction-pill:hover { background: #37474f; }
+    .reaction-pill.me { background: #1565c0; border-color: #4fc3f7; }
+    .reaction-pill .r-count { font-size: 0.75rem; color: #b0bec5; }
+    .reaction-pill.me .r-count { color: #e3f2fd; }
+
+    .emoji-picker { display: none; position: absolute; background: #16213e; border: 1px solid #0f3460; border-radius: 20px; padding: 4px 8px; gap: 4px; z-index: 10; box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+    .emoji-picker.show { display: flex; }
+    .emoji-btn { font-size: 1.2rem; cursor: pointer; padding: 3px 4px; border-radius: 6px; line-height: 1; border: none; background: none; transition: transform 0.1s; }
+    .emoji-btn:hover { transform: scale(1.3); background: rgba(255,255,255,0.08); }
+
+    .msg-action-bar { display: none; gap: 4px; position: relative; }
+    .msg:hover .msg-action-bar { display: flex; }
+    .msg.mine .msg-action-bar { justify-content: flex-end; }
+    .action-btn { font-size: 0.72rem; background: #263238; border: none; border-radius: 10px; padding: 3px 8px; color: #90a4ae; cursor: pointer; }
+    .action-btn:hover { background: #37474f; color: #e0e0e0; }
+
     #reply-bar { display: none; background: #0f3460; border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; color: #90caf9; align-items: center; gap: 8px; }
     #reply-bar.show { display: flex; }
     #reply-bar span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -237,17 +256,70 @@
     $('reply-preview-text').textContent = '';
   }
 
+  const QUICK_EMOJIS = ['👍','❤️','😂','😮','😢','🙏'];
+
+  function renderReactions(reactions, msgId, convId) {
+    const row = document.createElement('div');
+    row.className = 'msg-reactions';
+    row.dataset.reactionsFor = msgId;
+    (reactions || []).forEach(r => {
+      const pill = document.createElement('button');
+      pill.className = 'reaction-pill' + (r.reacted_by_me ? ' me' : '');
+      pill.innerHTML = `${r.emoji} <span class="r-count">${r.count}</span>`;
+      pill.title = r.reacted_by_me ? 'Remove reaction' : 'Add reaction';
+      pill.addEventListener('click', (e) => { e.stopPropagation(); toggleReaction(convId, msgId, r.emoji, r.reacted_by_me); });
+      row.appendChild(pill);
+    });
+    return row;
+  }
+
+  function updateReactionsUI(msgId, reactions) {
+    const convId = $('conversationId').value.trim();
+    const existing = document.querySelector(`[data-reactions-for="${msgId}"]`);
+    if (existing) existing.replaceWith(renderReactions(reactions, msgId, convId));
+  }
+
+  async function toggleReaction(convId, msgId, emoji, alreadyReacted) {
+    if (!token) return;
+    if (socket && socket.connected) {
+      // Use WebSocket — gateway broadcasts message:reaction to the room
+      socket.emit(alreadyReacted ? 'reaction:remove' : 'reaction:add', {
+        conversation_id: convId,
+        message_id: msgId,
+        emoji,
+      });
+    } else {
+      // Fallback to REST — controller also broadcasts via gateway
+      if (alreadyReacted) {
+        const res = await fetch(`${API}/conversations/${convId}/messages/${msgId}/reactions/${encodeURIComponent(emoji)}`, {
+          method: 'DELETE', headers: { Authorization: 'Bearer ' + token },
+        });
+        const data = await res.json();
+        if (data.success) updateReactionsUI(msgId, data.data);
+      } else {
+        const res = await fetch(`${API}/conversations/${convId}/messages/${msgId}/reactions`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emoji }),
+        });
+        const data = await res.json();
+        if (data.success) updateReactionsUI(msgId, data.data);
+      }
+    }
+  }
+
+  function showEmojiPicker(picker, convId, msgId) {
+    // close any other open pickers
+    document.querySelectorAll('.emoji-picker.show').forEach(p => { if (p !== picker) p.classList.remove('show'); });
+    picker.classList.toggle('show');
+  }
+
   function renderMsg(msg) {
     const isMe = msg.sender_id === myUserId;
+    const convId = $('conversationId').value.trim();
     const wrap = document.createElement('div');
     wrap.className = `msg ${isMe ? 'mine' : 'theirs'}`;
     wrap.dataset.id = msg.id;
-    wrap.title = 'Click to reply';
-    wrap.style.cursor = 'pointer';
-    wrap.addEventListener('click', () => {
-      const preview = msg.deleted_at ? 'Deleted message' : (msg.content || (msg.attachments?.[0]?.file_name ?? 'Attachment'));
-      setReply(msg.id, preview);
-    });
 
     if (!isMe) {
       const s = document.createElement('div');
@@ -309,7 +381,6 @@
       bubble.appendChild(audio);
 
     } else if (msg.attachments?.length) {
-      // file or video
       const a = msg.attachments[0];
       const link = document.createElement('a');
       link.className = 'msg-file';
@@ -332,6 +403,50 @@
     }
 
     wrap.appendChild(bubble);
+
+    // Action bar (reply + emoji picker toggle)
+    if (!msg.deleted_at) {
+      const actionBar = document.createElement('div');
+      actionBar.className = 'msg-action-bar';
+
+      const replyBtn = document.createElement('button');
+      replyBtn.className = 'action-btn';
+      replyBtn.textContent = '↩ Reply';
+      replyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const preview = msg.content || (msg.attachments?.[0]?.file_name ?? 'Attachment');
+        setReply(msg.id, preview);
+      });
+
+      const emojiToggle = document.createElement('button');
+      emojiToggle.className = 'action-btn';
+      emojiToggle.textContent = '😊 React';
+
+      const picker = document.createElement('div');
+      picker.className = 'emoji-picker';
+      QUICK_EMOJIS.forEach(emoji => {
+        const btn = document.createElement('button');
+        btn.className = 'emoji-btn';
+        btn.textContent = emoji;
+        btn.title = emoji;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          picker.classList.remove('show');
+          toggleReaction(convId, msg.id, emoji, false);
+        });
+        picker.appendChild(btn);
+      });
+
+      emojiToggle.addEventListener('click', (e) => { e.stopPropagation(); showEmojiPicker(picker, convId, msg.id); });
+
+      actionBar.appendChild(replyBtn);
+      actionBar.appendChild(emojiToggle);
+      actionBar.appendChild(picker);
+      wrap.appendChild(actionBar);
+    }
+
+    // Reactions row
+    wrap.appendChild(renderReactions(msg.reactions, msg.id, convId));
 
     const t = document.createElement('div');
     t.className = 'msg-time';
@@ -415,6 +530,7 @@
     socket.on('message:read_receipt', d => sysMsg(`Read by ${(d.user_id||'').slice(0,8)}…`));
     socket.on('typing:indicator', d => { if (d.is_typing) sysMsg(`${(d.user_id||'').slice(0,8)}… is typing`); });
     socket.on('user:status', d => sysMsg(`${(d.user_id||'').slice(0,8)}… ${d.is_online ? 'online' : 'offline'}`));
+    socket.on('message:reaction', d => updateReactionsUI(d.message_id, d.reactions));
     socket.on('error', err => sysMsg(`Error: ${JSON.stringify(err)}`));
   });
 
@@ -553,6 +669,12 @@
   // ── Lightbox ───────────────────────────────────────────────────────────────
 
   $('lightbox').addEventListener('click', () => $('lightbox').classList.remove('open'));
+
+  // ── Close emoji pickers on outside click ──────────────────────────────────
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.emoji-picker.show').forEach(p => p.classList.remove('show'));
+  });
 </script>
 </body>
 </html>

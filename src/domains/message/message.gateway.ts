@@ -170,6 +170,10 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     if (p) await client.join(data.conversation_id);
   }
 
+  broadcastReaction(conversationId: string, messageId: string, reactions: any[]) {
+    this.server.to(conversationId).emit('message:reaction', { message_id: messageId, reactions });
+  }
+
   private extractToken(client: Socket): string | undefined {
     const auth = client.handshake.auth?.token || client.handshake.headers?.authorization;
     if (!auth) return undefined;

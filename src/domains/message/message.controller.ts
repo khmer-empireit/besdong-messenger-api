@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MessageService } from './message.service';
+import { MessageGateway } from './message.gateway';
 import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { AddReactionDto } from './dto/add-reaction.dto';
@@ -13,7 +14,10 @@ import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 @UseGuards(JwtGuard)
 @Controller({ path: 'conversations', version: '1' })
 export class MessageController {
-  constructor(private messageService: MessageService) {}
+  constructor(
+    private messageService: MessageService,
+    private gateway: MessageGateway,
+  ) {}
 
   @Get(':id/messages')
   @ApiOperation({ summary: 'List messages in a conversation (cursor-based pagination)' })
@@ -71,13 +75,15 @@ export class MessageController {
   @ApiOperation({ summary: 'Add a reaction to a message' })
   @ApiResponse({ status: 201, description: 'Updated reactions for the message' })
   @ApiResponse({ status: 404, description: 'Message not found' })
-  addReaction(
+  async addReaction(
     @Param('id') id: string,
     @Param('msgId') msgId: string,
     @CurrentUser() user: { sub: string },
     @Body() dto: AddReactionDto,
   ) {
-    return this.messageService.addReaction(id, msgId, user.sub, dto);
+    const reactions = await this.messageService.addReaction(id, msgId, user.sub, dto);
+    this.gateway.broadcastReaction(id, msgId, reactions);
+    return reactions;
   }
 
   @Delete(':id/messages/:msgId/reactions/:emoji')
@@ -85,13 +91,15 @@ export class MessageController {
   @ApiOperation({ summary: 'Remove a reaction from a message' })
   @ApiResponse({ status: 200, description: 'Updated reactions for the message' })
   @ApiResponse({ status: 404, description: 'Message not found' })
-  removeReaction(
+  async removeReaction(
     @Param('id') id: string,
     @Param('msgId') msgId: string,
     @Param('emoji') emoji: string,
     @CurrentUser() user: { sub: string },
   ) {
-    return this.messageService.removeReaction(id, msgId, user.sub, decodeURIComponent(emoji));
+    const reactions = await this.messageService.removeReaction(id, msgId, user.sub, decodeURIComponent(emoji));
+    this.gateway.broadcastReaction(id, msgId, reactions);
+    return reactions;
   }
 
   @Patch(':id/read')
