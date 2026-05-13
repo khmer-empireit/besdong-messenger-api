@@ -14,6 +14,7 @@ import helmet from 'helmet';
 async function bootstrap() {
   const logger = new Logger('HTTP');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.enableShutdownHooks();
 
   app.use((req: any, res: any, next: any) => {
     res.on('finish', () => {

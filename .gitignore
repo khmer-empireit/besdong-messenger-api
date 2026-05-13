@@ -4,6 +4,7 @@ dist/
 coverage/
 *.md
 !README.md
+!CLAUDE.md
 *-adminsdk-*.json
 google-services.json
 test-firebase-token.html
