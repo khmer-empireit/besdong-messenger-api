@@ -18,6 +18,8 @@ export interface MessageAttachment {
 export interface ReplyToMessage {
   id: string;
   sender_id: string | null;
+  sender_username: string | null;
+  sender_display_name: string | null;
   content: string;
   type: MessageType;
 }
@@ -25,6 +27,8 @@ export interface ReplyToMessage {
 export interface ForwardedFromMessage {
   id: string;
   sender_id: string | null;
+  sender_username: string | null;
+  sender_display_name: string | null;
   content: string;
   type: MessageType;
 }

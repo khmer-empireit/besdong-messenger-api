@@ -39,6 +39,12 @@ class ReplyToData {
   @ApiProperty({ example: 'uuid', nullable: true })
   sender_id: string | null;
 
+  @ApiProperty({ example: 'dara_meas', nullable: true })
+  sender_username: string | null;
+
+  @ApiProperty({ example: 'Dara Meas', nullable: true })
+  sender_display_name: string | null;
+
   @ApiProperty({ example: 'Hello!' })
   content: string;
 

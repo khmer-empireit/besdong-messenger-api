@@ -6,7 +6,14 @@ import { AttachmentInputDto } from './dto/send-message.dto';
 
 function pickForwardedFrom(r: any) {
   if (!r) return null;
-  return { id: r.id, sender_id: r.sender_id, content: r.deleted_at ? '' : r.content, type: r.type };
+  return {
+    id: r.id,
+    sender_id: r.sender_id,
+    sender_username: r.sender_username ?? null,
+    sender_display_name: r.sender_display_name ?? null,
+    content: r.deleted_at ? '' : r.content,
+    type: r.type,
+  };
 }
 
 const DEFAULT_LIMIT = 30;
@@ -47,11 +54,13 @@ export class MessageRepository implements IMessageRepository {
       }
 
       msg.reply_to = msg.reply_to_id
-        ? await trx('messages').where({ id: msg.reply_to_id }).select('id', 'sender_id', 'content', 'type', 'deleted_at').first().then(pickForwardedFrom)
+        ? await trx('messages as m').leftJoin('users as u', 'u.id', 'm.sender_id').where('m.id', msg.reply_to_id)
+            .select('m.id', 'm.sender_id', 'm.content', 'm.type', 'm.deleted_at', 'u.username as sender_username', 'u.display_name as sender_display_name').first().then(pickForwardedFrom)
         : null;
 
       msg.forwarded_from = msg.forwarded_from_id
-        ? await trx('messages').where({ id: msg.forwarded_from_id }).select('id', 'sender_id', 'content', 'type', 'deleted_at').first().then(pickForwardedFrom)
+        ? await trx('messages as m').leftJoin('users as u', 'u.id', 'm.sender_id').where('m.id', msg.forwarded_from_id)
+            .select('m.id', 'm.sender_id', 'm.content', 'm.type', 'm.deleted_at', 'u.username as sender_username', 'u.display_name as sender_display_name').first().then(pickForwardedFrom)
         : null;
 
       return msg as Message;
@@ -63,10 +72,12 @@ export class MessageRepository implements IMessageRepository {
     if (!msg) return undefined;
     msg.attachments = await this.db.knex('message_attachments').where({ message_id: id }).orderBy('created_at', 'asc');
     msg.reply_to = msg.reply_to_id
-      ? await this.db.knex('messages').where({ id: msg.reply_to_id }).select('id', 'sender_id', 'content', 'type', 'deleted_at').first().then(pickForwardedFrom)
+      ? await this.db.knex('messages as m').leftJoin('users as u', 'u.id', 'm.sender_id').where('m.id', msg.reply_to_id)
+          .select('m.id', 'm.sender_id', 'm.content', 'm.type', 'm.deleted_at', 'u.username as sender_username', 'u.display_name as sender_display_name').first().then(pickForwardedFrom)
       : null;
     msg.forwarded_from = msg.forwarded_from_id
-      ? await this.db.knex('messages').where({ id: msg.forwarded_from_id }).select('id', 'sender_id', 'content', 'type', 'deleted_at').first().then(pickForwardedFrom)
+      ? await this.db.knex('messages as m').leftJoin('users as u', 'u.id', 'm.sender_id').where('m.id', msg.forwarded_from_id)
+          .select('m.id', 'm.sender_id', 'm.content', 'm.type', 'm.deleted_at', 'u.username as sender_username', 'u.display_name as sender_display_name').first().then(pickForwardedFrom)
       : null;
     return msg as Message;
   }
@@ -110,7 +121,10 @@ export class MessageRepository implements IMessageRepository {
     ].filter(Boolean))];
     const relatedMap: Record<string, any> = {};
     if (relatedIds.length > 0) {
-      const related = await this.db.knex('messages').whereIn('id', relatedIds).select('id', 'sender_id', 'content', 'type', 'deleted_at');
+      const related = await this.db.knex('messages as m')
+        .leftJoin('users as u', 'u.id', 'm.sender_id')
+        .whereIn('m.id', relatedIds)
+        .select('m.id', 'm.sender_id', 'm.content', 'm.type', 'm.deleted_at', 'u.username as sender_username', 'u.display_name as sender_display_name');
       for (const r of related) {
         relatedMap[r.id] = pickForwardedFrom(r);
       }
@@ -148,8 +162,11 @@ export class MessageRepository implements IMessageRepository {
         msg.attachments = [];
       }
 
+      const originalSender = original.sender_id
+        ? await trx('users').where({ id: original.sender_id }).select('username', 'display_name').first()
+        : null;
       msg.reply_to = null;
-      msg.forwarded_from = pickForwardedFrom(original);
+      msg.forwarded_from = pickForwardedFrom({ ...original, sender_username: originalSender?.username ?? null, sender_display_name: originalSender?.display_name ?? null });
 
       return msg as Message;
     });
