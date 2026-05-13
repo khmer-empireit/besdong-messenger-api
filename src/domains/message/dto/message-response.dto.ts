@@ -46,6 +46,17 @@ class ReplyToData {
   type: string;
 }
 
+class ReactionData {
+  @ApiProperty({ example: '👍' })
+  emoji: string;
+
+  @ApiProperty({ example: 3 })
+  count: number;
+
+  @ApiProperty({ example: true })
+  reacted_by_me: boolean;
+}
+
 class MessageData {
   @ApiProperty({ example: 'uuid' })
   id: string;
@@ -82,6 +93,9 @@ class MessageData {
 
   @ApiProperty({ type: [AttachmentData] })
   attachments: AttachmentData[];
+
+  @ApiProperty({ type: [ReactionData] })
+  reactions: ReactionData[];
 }
 
 class MessageActionData {

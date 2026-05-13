@@ -121,6 +121,44 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     });
   }
 
+  @SubscribeMessage('reaction:add')
+  async onReactionAdd(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversation_id: string; message_id: string; emoji: string },
+  ) {
+    const userId = client.data.userId;
+    if (!userId) return;
+
+    try {
+      const reactions = await this.messageService.addReaction(data.conversation_id, data.message_id, userId, { emoji: data.emoji });
+      this.server.to(data.conversation_id).emit('message:reaction', {
+        message_id: data.message_id,
+        reactions,
+      });
+    } catch {
+      client.emit('error', { event: 'reaction:add', message: 'Failed to add reaction' });
+    }
+  }
+
+  @SubscribeMessage('reaction:remove')
+  async onReactionRemove(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversation_id: string; message_id: string; emoji: string },
+  ) {
+    const userId = client.data.userId;
+    if (!userId) return;
+
+    try {
+      const reactions = await this.messageService.removeReaction(data.conversation_id, data.message_id, userId, data.emoji);
+      this.server.to(data.conversation_id).emit('message:reaction', {
+        message_id: data.message_id,
+        reactions,
+      });
+    } catch {
+      client.emit('error', { event: 'reaction:remove', message: 'Failed to remove reaction' });
+    }
+  }
+
   @SubscribeMessage('conversation:join')
   async onJoinConversation(
     @ConnectedSocket() client: Socket,

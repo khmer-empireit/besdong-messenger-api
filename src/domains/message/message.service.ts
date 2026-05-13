@@ -4,6 +4,7 @@ import { ConversationRepository } from '../conversation/conversation.repository'
 import { BlockRepository } from '../block/block.repository';
 import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
+import { AddReactionDto } from './dto/add-reaction.dto';
 
 @Injectable()
 export class MessageService {
@@ -54,7 +55,7 @@ export class MessageService {
 
   async list(conversationId: string, userId: string, cursor?: string) {
     await this.assertParticipant(conversationId, userId);
-    return this.repo.list(conversationId, cursor);
+    return this.repo.list(conversationId, cursor, userId);
   }
 
   async edit(conversationId: string, messageId: string, userId: string, dto: EditMessageDto) {
@@ -72,6 +73,22 @@ export class MessageService {
     if (msg.sender_id !== userId) throw new ForbiddenException('Cannot delete another user\'s message');
     await this.repo.softDelete(messageId);
     return { message: 'Message deleted' };
+  }
+
+  async addReaction(conversationId: string, messageId: string, userId: string, dto: AddReactionDto) {
+    await this.assertParticipant(conversationId, userId);
+    const msg = await this.repo.findById(messageId);
+    if (!msg || msg.conversation_id !== conversationId) throw new NotFoundException('Message not found');
+    await this.repo.addReaction(messageId, userId, dto.emoji);
+    return this.repo.getReactionSummary(messageId, userId);
+  }
+
+  async removeReaction(conversationId: string, messageId: string, userId: string, emoji: string) {
+    await this.assertParticipant(conversationId, userId);
+    const msg = await this.repo.findById(messageId);
+    if (!msg || msg.conversation_id !== conversationId) throw new NotFoundException('Message not found');
+    await this.repo.removeReaction(messageId, userId, emoji);
+    return this.repo.getReactionSummary(messageId, userId);
   }
 
   async markRead(conversationId: string, userId: string) {
