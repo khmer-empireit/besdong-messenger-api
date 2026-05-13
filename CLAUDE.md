@@ -218,8 +218,10 @@ DB: `besdong_messenger` on `localhost:5432` (user: `postgres`, password: `postgr
 | Email | Password | Role | Notes |
 |---|---|---|---|
 | `admin@besdong.com` | unknown — reset if needed | admin | Seeded admin |
-| `rltest@test.com` | `Test1234!` | user | Created for rate limit testing |
-| `rltest2@test.com` | `Test1234!` | user | Created for per-user isolation testing |
+| `srengsokheng.dm@gmail.com` | `88888888` | user | Primary test user — use for group/conversation testing |
+| `silverblack@gmail.com` | `88888888` | user | Secondary test user — use for group/conversation testing |
+| `rltest@test.com` | `Test1234!` | user | Rate limit testing |
+| `rltest2@test.com` | `Test1234!` | user | Rate limit isolation testing |
 
 To get an access token quickly:
 ```bash
