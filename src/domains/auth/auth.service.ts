@@ -11,6 +11,7 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
 import { FirebaseService } from '../../infrastructure/firebase/firebase.service';
+import { AppLogger } from '../../infrastructure/logger/logger.service';
 import { AuthRepository } from './auth.repository';
 import { AuthProvider, UserRole } from '../../shared/enums';
 import { RegisterDto } from './dto/register.dto';
@@ -27,6 +28,7 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     private firebase: FirebaseService,
+    private logger: AppLogger,
   ) {}
 
   // ── Register ───────────────────────────────────────────────────────────
@@ -361,7 +363,7 @@ export class AuthService {
       };
     } catch (e) {
       if (e instanceof UnauthorizedException) throw e;
-      console.error('[verifyFirebaseToken] error:', e);
+      this.logger.error('Firebase token verification failed', e instanceof Error ? e.stack : String(e), 'AuthService');
       throw new UnauthorizedException('Invalid Firebase token');
     }
   }

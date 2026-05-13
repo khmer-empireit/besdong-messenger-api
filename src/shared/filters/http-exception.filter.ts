@@ -1,6 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { MulterError } from 'multer';
+import { loggerContext } from '../../infrastructure/logger/logger.context';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -44,7 +45,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = 'Internal server error';
     }
 
-    const log = `${request.method} ${request.url} ${status} — ${message}`;
+    const requestId = loggerContext.getStore()?.requestId;
+    const log = `${request.method} ${request.url} ${status} — ${message}${requestId ? ` [${requestId}]` : ''}`;
     if (status >= 500) {
       this.logger.error(log, exception instanceof Error ? exception.stack : undefined);
     } else {
