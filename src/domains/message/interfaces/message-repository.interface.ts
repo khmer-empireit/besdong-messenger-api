@@ -1,4 +1,4 @@
-import { Message, MessageAttachment } from '../entities/message.entity';
+import { Message, ReactionSummary } from '../entities/message.entity';
 import { AttachmentInputDto } from '../dto/send-message.dto';
 
 export interface IMessageRepository {
@@ -15,4 +15,8 @@ export interface IMessageRepository {
   update(id: string, data: { content: string; is_edited: boolean; edited_at: Date }): Promise<Message>;
   softDelete(id: string): Promise<void>;
   updateLastRead(conversationId: string, userId: string): Promise<void>;
+  addReaction(messageId: string, userId: string, emoji: string): Promise<void>;
+  removeReaction(messageId: string, userId: string, emoji: string): Promise<void>;
+  getReactionSummary(messageId: string, userId: string): Promise<ReactionSummary[]>;
+  forward(originalId: string, targetConversationId: string, senderId: string): Promise<Message>;
 }

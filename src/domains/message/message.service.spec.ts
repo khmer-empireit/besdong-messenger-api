@@ -57,6 +57,10 @@ describe('MessageService', () => {
             update: jest.fn(),
             softDelete: jest.fn(),
             updateLastRead: jest.fn(),
+            addReaction: jest.fn(),
+            removeReaction: jest.fn(),
+            getReactionSummary: jest.fn(),
+            forward: jest.fn(),
           },
         },
         {
