@@ -35,6 +35,14 @@ export class UserService {
     return this.repo.findByIdentifier(identifier.trim());
   }
 
+  async findByName(query: string, limit?: number, offset?: number) {
+    return this.repo.findByName(query.trim(), limit, offset);
+  }
+
+  async findByBdNumber(bdNumber: string) {
+    return this.repo.findByBdNumber(bdNumber.trim().toUpperCase());
+  }
+
   async search(query: string) {
     return this.repo.search(query.trim());
   }

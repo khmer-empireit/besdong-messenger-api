@@ -272,9 +272,12 @@ export class AuthService {
     const accessExpiresIn = this.config.get('JWT_ACCESS_EXPIRES_IN', '15m');
     const refreshExpiresIn = this.config.get('JWT_REFRESH_EXPIRES_IN', '30d');
 
+    const user = await this.repo.findUserById(userId);
+    const role = user?.role ?? 'user';
+
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(
-        { sub: userId, jti: crypto.randomUUID() },
+        { sub: userId, role, jti: crypto.randomUUID() },
         {
           secret: this.config.get<string>('JWT_ACCESS_SECRET'),
           expiresIn: accessExpiresIn as any,

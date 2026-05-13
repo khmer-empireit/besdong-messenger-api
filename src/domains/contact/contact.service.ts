@@ -5,13 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ContactRepository } from './contact.repository';
-import { UserRepository } from '../user/user.repository';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class ContactService {
   constructor(
     private contactRepo: ContactRepository,
-    private userRepo: UserRepository,
+    private userService: UserService,
   ) {}
 
   async findUsers(query: string, type: 'name' | 'bd_number', page = 1, limit = 20) {
@@ -20,8 +20,8 @@ export class ContactService {
 
     const offset = (page - 1) * limit;
     const users = resolvedType === 'bd_number'
-      ? await this.userRepo.findByBdNumber(query.trim().toUpperCase())
-      : await this.userRepo.findByName(query, limit, offset);
+      ? await this.userService.findByBdNumber(query.trim())
+      : await this.userService.findByName(query, limit, offset);
 
     if (!users.length) throw new NotFoundException('User not found');
     return users.map(({ id, username, display_name, bd_number, avatar_url, bio, is_online, last_seen_at }) => ({
@@ -38,7 +38,7 @@ export class ContactService {
       throw new BadRequestException('You cannot add yourself as a contact');
     }
 
-    const target = await this.userRepo.findById(contactId);
+    const target = await this.userService.getProfile(contactId);
     if (!target) throw new NotFoundException('User not found');
 
     const existing = await this.contactRepo.findOne(ownerId, contactId);

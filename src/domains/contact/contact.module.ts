@@ -3,11 +3,11 @@ import { JwtModule } from '@nestjs/jwt';
 import { ContactController } from './contact.controller';
 import { ContactService } from './contact.service';
 import { ContactRepository } from './contact.repository';
-import { UserRepository } from '../user/user.repository';
+import { UserModule } from '../user/user.module';
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), UserModule],
   controllers: [ContactController],
-  providers: [ContactService, ContactRepository, UserRepository],
+  providers: [ContactService, ContactRepository],
 })
 export class ContactModule {}
