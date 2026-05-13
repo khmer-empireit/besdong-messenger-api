@@ -7,6 +7,8 @@ import * as path from 'path';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import { ResponseInterceptor } from './shared/interceptors/response.interceptor';
+import { RedisService } from './infrastructure/cache/redis.service';
+import { RedisIoAdapter } from './infrastructure/cache/redis-io.adapter';
 import helmet from 'helmet';
 
 async function bootstrap() {
@@ -64,6 +66,9 @@ async function bootstrap() {
 
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor());
+
+  const redisService = app.get(RedisService);
+  app.useWebSocketAdapter(new RedisIoAdapter(app, redisService));
 
   const port = process.env.PORT || 3000;
 
