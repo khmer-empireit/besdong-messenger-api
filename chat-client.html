@@ -60,6 +60,16 @@
     .msg-reply-preview .reply-sender { font-size: 0.75rem; font-weight: 700; color: #4fc3f7; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .msg-reply-preview .reply-content { font-size: 0.78rem; color: #b0bec5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+    .msg-forwarded-label { font-size: 0.72rem; color: #78909c; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+
+    /* Forward modal */
+    #forward-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; justify-content: center; align-items: center; }
+    #forward-modal.open { display: flex; }
+    #forward-box { background: #16213e; border: 1px solid #0f3460; border-radius: 12px; padding: 20px; width: 320px; display: flex; flex-direction: column; gap: 12px; }
+    #forward-box h3 { font-size: 0.95rem; color: #4fc3f7; margin: 0; }
+    #forward-box input { background: #0f3460; border: 1px solid #1565c0; border-radius: 6px; padding: 8px 12px; color: #e0e0e0; font-size: 0.85rem; width: 100%; }
+    #forward-box .btn-row { display: flex; gap: 8px; justify-content: flex-end; }
+
     /* Reactions */
     .msg-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
     .reaction-pill { display: inline-flex; align-items: center; gap: 3px; background: #263238; border: 1px solid #37474f; border-radius: 12px; padding: 2px 8px; font-size: 0.8rem; cursor: pointer; transition: background 0.15s, border-color 0.15s; user-select: none; }
@@ -188,6 +198,17 @@
         <button id="sendBtn">➤</button>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<div id="forward-modal">
+  <div id="forward-box">
+    <h3>↪ Forward Message</h3>
+    <input id="forward-target" type="text" placeholder="Paste target conversation ID" />
+    <div class="btn-row">
+      <button class="btn btn-gray" id="forward-cancel-btn">Cancel</button>
+      <button class="btn btn-blue" id="forward-confirm-btn">Forward</button>
     </div>
   </div>
 </div>
@@ -331,6 +352,13 @@
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
 
+    if (msg.forwarded_from) {
+      const fwd = document.createElement('div');
+      fwd.className = 'msg-forwarded-label';
+      fwd.textContent = '↪ Forwarded';
+      bubble.appendChild(fwd);
+    }
+
     if (msg.reply_to) {
       const rp = document.createElement('div');
       rp.className = 'msg-reply-preview';
@@ -404,7 +432,7 @@
 
     wrap.appendChild(bubble);
 
-    // Action bar (reply + emoji picker toggle)
+    // Action bar (reply + emoji picker + forward)
     if (!msg.deleted_at) {
       const actionBar = document.createElement('div');
       actionBar.className = 'msg-action-bar';
@@ -439,14 +467,21 @@
 
       emojiToggle.addEventListener('click', (e) => { e.stopPropagation(); showEmojiPicker(picker, convId, msg.id); });
 
+      const fwdBtn = document.createElement('button');
+      fwdBtn.className = 'action-btn';
+      fwdBtn.textContent = '↪ Forward';
+      fwdBtn.addEventListener('click', (e) => { e.stopPropagation(); openForwardModal(convId, msg.id); });
+
       actionBar.appendChild(replyBtn);
       actionBar.appendChild(emojiToggle);
       actionBar.appendChild(picker);
+      actionBar.appendChild(fwdBtn);
       wrap.appendChild(actionBar);
     }
 
     // Reactions row
     wrap.appendChild(renderReactions(msg.reactions, msg.id, convId));
+
 
     const t = document.createElement('div');
     t.className = 'msg-time';
@@ -664,6 +699,40 @@
     socket.emit('typing:start', { conversation_id: convId });
     clearTimeout(typingTimer);
     typingTimer = setTimeout(() => socket.emit('typing:stop', { conversation_id: convId }), 2000);
+  });
+
+  // ── Forward ────────────────────────────────────────────────────────────────
+
+  let forwardCtx = { convId: null, msgId: null };
+
+  function openForwardModal(convId, msgId) {
+    forwardCtx = { convId, msgId };
+    $('forward-target').value = '';
+    $('forward-modal').classList.add('open');
+    $('forward-target').focus();
+  }
+
+  $('forward-cancel-btn').addEventListener('click', () => $('forward-modal').classList.remove('open'));
+
+  $('forward-confirm-btn').addEventListener('click', async () => {
+    const targetId = $('forward-target').value.trim();
+    if (!targetId) return alert('Enter a target conversation ID');
+    if (!token) return alert('Login first');
+
+    const res = await fetch(`${API}/conversations/${forwardCtx.convId}/messages/${forwardCtx.msgId}/forward`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_conversation_id: targetId }),
+    });
+    const data = await res.json();
+    $('forward-modal').classList.remove('open');
+    if (!data.success) return sysMsg('Forward failed: ' + data.message);
+    sysMsg(`Message forwarded to conversation ${targetId.slice(0, 8)}…`);
+    // If we're already viewing the target, append it
+    if (targetId === $('conversationId').value.trim()) {
+      $('messages').appendChild(renderMsg(data.data));
+      scrollBottom();
+    }
   });
 
   // ── Lightbox ───────────────────────────────────────────────────────────────
