@@ -1,4 +1,8 @@
-export type AuthMethod = 'local' | 'google' | 'facebook' | 'apple' | 'telegram';
+import { AuthProvider } from '../../../shared/enums';
+
+export { AuthProvider };
+
+export type AuthMethod = AuthProvider;
 
 export interface AuthConfig {
   id: string;

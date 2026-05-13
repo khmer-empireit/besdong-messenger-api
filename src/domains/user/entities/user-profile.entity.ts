@@ -1,3 +1,7 @@
+import { UserRole } from '../../../shared/enums';
+
+export { UserRole };
+
 export interface UserProfile {
   id: string;
   username: string;
@@ -7,7 +11,7 @@ export interface UserProfile {
   avatar_url: string | null;
   bio: string | null;
   dob: string | null;
-  role: 'user' | 'admin';
+  role: UserRole;
   is_active: boolean;
   is_verified: boolean;
   is_online: boolean;

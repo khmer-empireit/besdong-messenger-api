@@ -12,6 +12,7 @@ import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
 import { FirebaseService } from '../../infrastructure/firebase/firebase.service';
 import { AuthRepository } from './auth.repository';
+import { AuthProvider, UserRole } from '../../shared/enums';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -31,11 +32,11 @@ export class AuthService {
   // ── Register ───────────────────────────────────────────────────────────
 
   async register(dto: RegisterDto, deviceInfo?: string) {
-    if (!(await this.repo.isAuthMethodEnabled('local'))) {
+    if (!(await this.repo.isAuthMethodEnabled(AuthProvider.Local))) {
       throw new ForbiddenException('Email/password registration is currently disabled');
     }
 
-    const existing = await this.repo.findIdentityByEmail(dto.email, 'local');
+    const existing = await this.repo.findIdentityByEmail(dto.email, AuthProvider.Local);
     if (existing) throw new ConflictException('Email already registered');
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
@@ -54,11 +55,11 @@ export class AuthService {
   // ── Login ──────────────────────────────────────────────────────────────
 
   async login(dto: LoginDto, deviceInfo?: string) {
-    if (!(await this.repo.isAuthMethodEnabled('local'))) {
+    if (!(await this.repo.isAuthMethodEnabled(AuthProvider.Local))) {
       throw new ForbiddenException('Email/password login is currently disabled');
     }
 
-    const identity = await this.repo.findIdentityByEmail(dto.email, 'local');
+    const identity = await this.repo.findIdentityByEmail(dto.email, AuthProvider.Local);
     if (!identity) throw new UnauthorizedException('Invalid credentials');
 
     const valid = await bcrypt.compare(dto.password, identity.password_hash);
@@ -105,11 +106,11 @@ export class AuthService {
   // ── Forgot Password ────────────────────────────────────────────────────
 
   async forgotPassword(dto: ForgotPasswordDto) {
-    if (!(await this.repo.isAuthMethodEnabled('local'))) {
+    if (!(await this.repo.isAuthMethodEnabled(AuthProvider.Local))) {
       throw new ForbiddenException('Email/password login is currently disabled');
     }
 
-    const identity = await this.repo.findIdentityByEmail(dto.email, 'local');
+    const identity = await this.repo.findIdentityByEmail(dto.email, AuthProvider.Local);
     if (!identity) return { message: 'OTP has been sent to your email' };
 
     const otp = this.generateOtp();
@@ -140,7 +141,7 @@ export class AuthService {
   // ── Verify OTP ─────────────────────────────────────────────────────────
 
   async verifyOtp(email: string, otpCode: string) {
-    const identity = await this.repo.findIdentityByEmail(email, 'local');
+    const identity = await this.repo.findIdentityByEmail(email, AuthProvider.Local);
     if (!identity) throw new BadRequestException('Invalid request');
 
     const otp = await this.repo.findActiveOtp(identity.user_id, 'reset_password');
@@ -155,11 +156,11 @@ export class AuthService {
   // ── Reset Password ─────────────────────────────────────────────────────
 
   async resetPassword(dto: ResetPasswordDto) {
-    if (!(await this.repo.isAuthMethodEnabled('local'))) {
+    if (!(await this.repo.isAuthMethodEnabled(AuthProvider.Local))) {
       throw new ForbiddenException('Email/password login is currently disabled');
     }
 
-    const identity = await this.repo.findIdentityByEmail(dto.email, 'local');
+    const identity = await this.repo.findIdentityByEmail(dto.email, AuthProvider.Local);
     if (!identity) throw new BadRequestException('Invalid request');
 
     const otp = await this.repo.findActiveOtp(identity.user_id, 'reset_password');
@@ -212,14 +213,14 @@ export class AuthService {
   // ── Telegram ───────────────────────────────────────────────────────────
 
   async telegramLogin(dto: TelegramAuthDto, deviceInfo?: string) {
-    if (!(await this.repo.isAuthMethodEnabled('telegram'))) {
+    if (!(await this.repo.isAuthMethodEnabled(AuthProvider.Telegram))) {
       throw new ForbiddenException('Telegram login is currently disabled');
     }
 
     this.verifyTelegramAuth(dto);
 
     const providerUserId = String(dto.id);
-    const existing = await this.repo.findIdentityByProviderId('telegram', providerUserId);
+    const existing = await this.repo.findIdentityByProviderId(AuthProvider.Telegram, providerUserId);
     if (existing) return this.issueTokens(existing.user_id, deviceInfo);
 
     const base = (dto.username ?? `telegram${dto.id}`)
@@ -232,7 +233,7 @@ export class AuthService {
     const user = await this.repo.createOAuthUser({
       username,
       display_name: displayName,
-      provider: 'telegram',
+      provider: AuthProvider.Telegram,
       provider_user_id: providerUserId,
       email: null,
       avatar_url: dto.photo_url,
@@ -273,7 +274,7 @@ export class AuthService {
     const refreshExpiresIn = this.config.get('JWT_REFRESH_EXPIRES_IN', '30d');
 
     const user = await this.repo.findUserById(userId);
-    const role = user?.role ?? 'user';
+    const role = user?.role ?? UserRole.User;
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(
@@ -338,16 +339,16 @@ export class AuthService {
 
   private async verifyFirebaseToken(token: string): Promise<{
     provider_user_id: string;
-    provider: 'google' | 'facebook' | 'apple';
+    provider: AuthProvider.Google | AuthProvider.Facebook | AuthProvider.Apple;
     email: string;
     display_name?: string;
   }> {
     try {
       const decoded = await this.firebase.auth.verifyIdToken(token);
-      const providerMap: Record<string, 'google' | 'facebook' | 'apple'> = {
-        'google.com': 'google',
-        'facebook.com': 'facebook',
-        'apple.com': 'apple',
+      const providerMap: Record<string, AuthProvider.Google | AuthProvider.Facebook | AuthProvider.Apple> = {
+        'google.com': AuthProvider.Google,
+        'facebook.com': AuthProvider.Facebook,
+        'apple.com': AuthProvider.Apple,
       };
       const provider = providerMap[decoded.firebase?.sign_in_provider];
       if (!provider) throw new UnauthorizedException('Unsupported sign-in provider');

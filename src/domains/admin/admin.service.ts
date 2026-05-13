@@ -2,8 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { AdminRepository } from './admin.repository';
 import { AuthMethod } from './entities/auth-config.entity';
 import { ToggleAuthMethodDto } from './dto/toggle-auth-method.dto';
+import { AuthProvider } from '../../shared/enums';
 
-const VALID_METHODS: AuthMethod[] = ['local', 'google', 'facebook', 'apple', 'telegram'];
+const VALID_METHODS: AuthMethod[] = Object.values(AuthProvider);
 
 @Injectable()
 export class AdminService {

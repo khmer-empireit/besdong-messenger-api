@@ -1,5 +1,6 @@
-export type MessageType = 'text' | 'image' | 'file' | 'audio' | 'call_log' | 'system';
-export type AttachmentType = 'image' | 'file' | 'audio' | 'video';
+import { MessageType, AttachmentType } from '../../../shared/enums';
+
+export { MessageType, AttachmentType };
 
 export interface MessageAttachment {
   id: string;

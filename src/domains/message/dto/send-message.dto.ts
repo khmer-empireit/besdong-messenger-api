@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
-  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -13,6 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { MessageType, AttachmentType } from '../../../shared/enums';
 
 export class AttachmentInputDto {
   @ApiProperty({ example: 'https://cdn.example.com/attachments/file.jpg' })
@@ -23,9 +23,9 @@ export class AttachmentInputDto {
   @IsString()
   key: string;
 
-  @ApiProperty({ enum: ['image', 'file', 'audio', 'video'] })
-  @IsIn(['image', 'file', 'audio', 'video'])
-  type: 'image' | 'file' | 'audio' | 'video';
+  @ApiProperty({ enum: AttachmentType })
+  @IsEnum(AttachmentType)
+  type: AttachmentType;
 
   @ApiProperty({ example: 'image/jpeg' })
   @IsString()
@@ -53,13 +53,13 @@ export class AttachmentInputDto {
 }
 
 export class SendMessageDto {
-  @ApiPropertyOptional({ enum: ['text', 'image', 'file', 'audio'], default: 'text' })
+  @ApiPropertyOptional({ enum: MessageType, default: MessageType.Text })
   @IsOptional()
-  @IsEnum(['text', 'image', 'file', 'audio'])
-  type?: 'text' | 'image' | 'file' | 'audio' = 'text';
+  @IsEnum(MessageType)
+  type?: MessageType = MessageType.Text;
 
   @ApiPropertyOptional({ example: 'Hello!' })
-  @ValidateIf((o) => o.type === 'text' || o.type === undefined)
+  @ValidateIf((o) => o.type === MessageType.Text || o.type === undefined)
   @IsString()
   @MinLength(1)
   content?: string;

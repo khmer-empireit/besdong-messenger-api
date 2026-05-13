@@ -8,6 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
+import { UserRole } from '../enums';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -32,7 +33,7 @@ export class AdminGuard implements CanActivate {
 
     (request as any).user = payload;
 
-    if (payload.role !== 'admin') throw new ForbiddenException('Admin access required');
+    if (payload.role !== UserRole.Admin) throw new ForbiddenException('Admin access required');
 
     return true;
   }

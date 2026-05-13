@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
 import { MessageService } from './message.service';
+import { MessageType } from '../../shared/enums';
 import { UserService } from '../user/user.service';
 import { ConversationRepository } from '../conversation/conversation.repository';
 import { RedisService } from '../../infrastructure/cache/redis.service';
@@ -59,7 +60,7 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
   @SubscribeMessage('message:send')
   async onMessageSend(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { conversation_id: string; content?: string; type?: 'text' | 'image' | 'file' | 'audio'; attachments?: any[]; reply_to_id?: string },
+    @MessageBody() data: { conversation_id: string; content?: string; type?: MessageType; attachments?: any[]; reply_to_id?: string },
   ) {
     const userId = client.data.userId;
     if (!userId) return;
