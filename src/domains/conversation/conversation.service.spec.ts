@@ -3,10 +3,11 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { ConversationService } from './conversation.service';
 import { ConversationRepository } from './conversation.repository';
 import { UserRepository } from '../user/user.repository';
+import { ConversationType, ParticipantRole } from '../../shared/enums';
 
 const mockConvDirect = {
   id: 'conv-uuid-1',
-  type: 'direct' as const,
+  type: ConversationType.Direct,
   name: null,
   avatar_url: null,
   created_by: 'user-uuid-1',
@@ -16,7 +17,7 @@ const mockConvDirect = {
 
 const mockConvGroup = {
   id: 'conv-uuid-2',
-  type: 'group' as const,
+  type: ConversationType.Group,
   name: 'Test Group',
   avatar_url: null,
   created_by: 'user-uuid-1',
@@ -27,7 +28,7 @@ const mockConvGroup = {
 const mockParticipantOwner = {
   conversation_id: 'conv-uuid-1',
   user_id: 'user-uuid-1',
-  role: 'owner' as const,
+  role: ParticipantRole.Owner,
   joined_at: new Date('2026-01-01'),
   muted_until: null,
   last_read_at: null,
@@ -36,7 +37,7 @@ const mockParticipantOwner = {
 const mockParticipantMember = {
   conversation_id: 'conv-uuid-1',
   user_id: 'user-uuid-2',
-  role: 'member' as const,
+  role: ParticipantRole.Member,
   joined_at: new Date('2026-01-01'),
   muted_until: null,
   last_read_at: null,
@@ -96,12 +97,12 @@ describe('ConversationService', () => {
       repo.create.mockResolvedValue(mockConvDirect);
 
       const result = await service.create('user-uuid-1', {
-        type: 'direct',
+        type: ConversationType.Direct,
         member_ids: ['user-uuid-2'],
       });
 
       expect(result).toEqual(mockConvDirect);
-      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ type: 'direct' }));
+      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ type: ConversationType.Direct }));
       expect(repo.addParticipant).toHaveBeenCalledTimes(2);
     });
 
@@ -109,7 +110,7 @@ describe('ConversationService', () => {
       repo.findDirectBetween.mockResolvedValue(mockConvDirect);
 
       const result = await service.create('user-uuid-1', {
-        type: 'direct',
+        type: ConversationType.Direct,
         member_ids: ['user-uuid-2'],
       });
 
@@ -119,7 +120,7 @@ describe('ConversationService', () => {
 
     it('throws BadRequestException if member_ids is not exactly one user', async () => {
       await expect(
-        service.create('user-uuid-1', { type: 'direct', member_ids: ['user-2', 'user-3'] }),
+        service.create('user-uuid-1', { type: ConversationType.Direct, member_ids: ['user-2', 'user-3'] }),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -131,23 +132,23 @@ describe('ConversationService', () => {
       repo.create.mockResolvedValue(mockConvGroup);
 
       const result = await service.create('user-uuid-1', {
-        type: 'group',
+        type: ConversationType.Group,
         name: 'Test Group',
         member_ids: ['user-uuid-2'],
       });
 
       expect(result).toEqual(mockConvGroup);
       expect(repo.addParticipant).toHaveBeenCalledWith(
-        expect.objectContaining({ user_id: 'user-uuid-1', role: 'owner' }),
+        expect.objectContaining({ user_id: 'user-uuid-1', role: ParticipantRole.Owner }),
       );
       expect(repo.addParticipant).toHaveBeenCalledWith(
-        expect.objectContaining({ user_id: 'user-uuid-2', role: 'member' }),
+        expect.objectContaining({ user_id: 'user-uuid-2', role: ParticipantRole.Member }),
       );
     });
 
     it('throws BadRequestException if name is missing', async () => {
       await expect(
-        service.create('user-uuid-1', { type: 'group', member_ids: ['user-uuid-2'] }),
+        service.create('user-uuid-1', { type: ConversationType.Group, member_ids: ['user-uuid-2'] }),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -237,7 +238,7 @@ describe('ConversationService', () => {
 
       expect(result).toEqual({ message: 'Members added' });
       expect(repo.addParticipant).toHaveBeenCalledWith(
-        expect.objectContaining({ user_id: 'user-uuid-3', role: 'member' }),
+        expect.objectContaining({ user_id: 'user-uuid-3', role: ParticipantRole.Member }),
       );
     });
 
@@ -259,17 +260,17 @@ describe('ConversationService', () => {
         .mockResolvedValueOnce(mockParticipantOwner)  // requester = owner
         .mockResolvedValueOnce(mockParticipantMember); // target = member
 
-      const result = await service.updateMemberRole('conv-uuid-2', 'user-uuid-1', 'user-uuid-2', { role: 'admin' });
+      const result = await service.updateMemberRole('conv-uuid-2', 'user-uuid-1', 'user-uuid-2', { role: ParticipantRole.Admin });
 
       expect(result).toEqual({ message: 'Role updated' });
-      expect(repo.updateParticipantRole).toHaveBeenCalledWith('conv-uuid-2', 'user-uuid-2', 'admin');
+      expect(repo.updateParticipantRole).toHaveBeenCalledWith('conv-uuid-2', 'user-uuid-2', ParticipantRole.Admin);
     });
 
     it('throws ForbiddenException when non-owner tries to change role', async () => {
       repo.findById.mockResolvedValue(mockConvGroup);
       repo.getParticipant.mockResolvedValue(mockParticipantMember); // requester = member
 
-      await expect(service.updateMemberRole('conv-uuid-2', 'user-uuid-2', 'user-uuid-1', { role: 'member' })).rejects.toThrow(ForbiddenException);
+      await expect(service.updateMemberRole('conv-uuid-2', 'user-uuid-2', 'user-uuid-1', { role: ParticipantRole.Member })).rejects.toThrow(ForbiddenException);
     });
 
     it('throws ForbiddenException when trying to change owner role', async () => {
@@ -278,13 +279,13 @@ describe('ConversationService', () => {
         .mockResolvedValueOnce(mockParticipantOwner)  // requester = owner
         .mockResolvedValueOnce(mockParticipantOwner); // target = also owner
 
-      await expect(service.updateMemberRole('conv-uuid-2', 'user-uuid-1', 'user-uuid-1', { role: 'member' })).rejects.toThrow(ForbiddenException);
+      await expect(service.updateMemberRole('conv-uuid-2', 'user-uuid-1', 'user-uuid-1', { role: ParticipantRole.Member })).rejects.toThrow(ForbiddenException);
     });
 
     it('throws BadRequestException for direct conversation', async () => {
       repo.findById.mockResolvedValue(mockConvDirect);
 
-      await expect(service.updateMemberRole('conv-uuid-1', 'user-uuid-1', 'user-uuid-2', { role: 'admin' })).rejects.toThrow(BadRequestException);
+      await expect(service.updateMemberRole('conv-uuid-1', 'user-uuid-1', 'user-uuid-2', { role: ParticipantRole.Admin })).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -313,7 +314,7 @@ describe('ConversationService', () => {
     });
 
     it('throws ForbiddenException when admin tries to kick another admin', async () => {
-      const mockParticipantAdmin = { ...mockParticipantMember, role: 'admin' as const };
+      const mockParticipantAdmin = { ...mockParticipantMember, role: ParticipantRole.Admin };
       repo.findById.mockResolvedValue(mockConvGroup);
       repo.getParticipant
         .mockResolvedValueOnce(mockParticipantAdmin)  // requester = admin
@@ -323,7 +324,7 @@ describe('ConversationService', () => {
     });
 
     it('throws ForbiddenException when admin tries to kick the owner', async () => {
-      const mockParticipantAdmin = { ...mockParticipantMember, role: 'admin' as const };
+      const mockParticipantAdmin = { ...mockParticipantMember, role: ParticipantRole.Admin };
       repo.findById.mockResolvedValue(mockConvGroup);
       repo.getParticipant
         .mockResolvedValueOnce(mockParticipantAdmin)  // requester = admin
