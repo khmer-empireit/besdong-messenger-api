@@ -68,6 +68,12 @@ class MessageData {
   @ApiPropertyOptional({ type: ReplyToData, nullable: true })
   reply_to: ReplyToData | null;
 
+  @ApiProperty({ example: null, nullable: true })
+  forwarded_from_id: string | null;
+
+  @ApiPropertyOptional({ type: ReplyToData, nullable: true })
+  forwarded_from: ReplyToData | null;
+
   @ApiProperty({ example: false })
   is_edited: boolean;
 

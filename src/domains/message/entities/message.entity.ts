@@ -22,6 +22,13 @@ export interface ReplyToMessage {
   type: MessageType;
 }
 
+export interface ForwardedFromMessage {
+  id: string;
+  sender_id: string | null;
+  content: string;
+  type: MessageType;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -30,6 +37,8 @@ export interface Message {
   type: MessageType;
   reply_to_id: string | null;
   reply_to?: ReplyToMessage | null;
+  forwarded_from_id: string | null;
+  forwarded_from?: ForwardedFromMessage | null;
   is_edited: boolean;
   edited_at: Date | null;
   deleted_at: Date | null;

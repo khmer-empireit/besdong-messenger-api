@@ -21,6 +21,7 @@ const mockMessage = {
   content: 'Hello!',
   type: 'text' as const,
   reply_to_id: null,
+  forwarded_from_id: null,
   is_edited: false,
   edited_at: null,
   deleted_at: null,

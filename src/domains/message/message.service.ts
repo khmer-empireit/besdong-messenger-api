@@ -4,6 +4,7 @@ import { ConversationRepository } from '../conversation/conversation.repository'
 import { BlockRepository } from '../block/block.repository';
 import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
+import { ForwardMessageDto } from './dto/forward-message.dto';
 
 @Injectable()
 export class MessageService {
@@ -72,6 +73,19 @@ export class MessageService {
     if (msg.sender_id !== userId) throw new ForbiddenException('Cannot delete another user\'s message');
     await this.repo.softDelete(messageId);
     return { message: 'Message deleted' };
+  }
+
+  async forward(conversationId: string, messageId: string, userId: string, dto: ForwardMessageDto) {
+    await this.assertParticipant(conversationId, userId);
+    const msg = await this.repo.findById(messageId);
+    if (!msg || msg.conversation_id !== conversationId) throw new NotFoundException('Message not found');
+    if (msg.deleted_at) throw new BadRequestException('Cannot forward a deleted message');
+
+    await this.assertParticipant(dto.target_conversation_id, userId);
+
+    const forwarded = await this.repo.forward(messageId, dto.target_conversation_id, userId);
+    await this.convRepo.update(dto.target_conversation_id, { updated_at: new Date() });
+    return forwarded;
   }
 
   async markRead(conversationId: string, userId: string) {

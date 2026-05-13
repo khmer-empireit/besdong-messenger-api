@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MessageService } from './message.service';
+import { MessageGateway } from './message.gateway';
 import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
+import { ForwardMessageDto } from './dto/forward-message.dto';
 import { MessageResponseDto, MessageListResponseDto, MessageActionResponseDto } from './dto/message-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
@@ -12,7 +14,10 @@ import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 @UseGuards(JwtGuard)
 @Controller({ path: 'conversations', version: '1' })
 export class MessageController {
-  constructor(private messageService: MessageService) {}
+  constructor(
+    private messageService: MessageService,
+    private gateway: MessageGateway,
+  ) {}
 
   @Get(':id/messages')
   @ApiOperation({ summary: 'List messages in a conversation (cursor-based pagination)' })
@@ -64,6 +69,23 @@ export class MessageController {
     @CurrentUser() user: { sub: string },
   ) {
     return this.messageService.delete(id, msgId, user.sub);
+  }
+
+  @Post(':id/messages/:msgId/forward')
+  @ApiOperation({ summary: 'Forward a message to another conversation' })
+  @ApiResponse({ status: 201, type: MessageResponseDto })
+  @ApiResponse({ status: 400, description: 'Message is deleted' })
+  @ApiResponse({ status: 403, description: 'Not a member of source or target conversation' })
+  @ApiResponse({ status: 404, description: 'Message not found' })
+  async forward(
+    @Param('id') id: string,
+    @Param('msgId') msgId: string,
+    @CurrentUser() user: { sub: string },
+    @Body() dto: ForwardMessageDto,
+  ) {
+    const msg = await this.messageService.forward(id, msgId, user.sub, dto);
+    this.gateway.server.to(dto.target_conversation_id).emit('message:new', msg);
+    return msg;
   }
 
   @Patch(':id/read')
