@@ -120,6 +120,16 @@ export class UserController {
     return this.userService.search(q || '');
   }
 
+  @Get('me/device-tokens')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(30, 60)
+  @ApiOperation({ summary: 'List registered devices for the current user' })
+  @ApiResponse({ status: 200, description: 'Device list' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  listDeviceTokens(@CurrentUser() user: { sub: string }) {
+    return this.userService.listDeviceTokens(user.sub);
+  }
+
   @Post('me/device-tokens')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimitGuard)
@@ -131,7 +141,7 @@ export class UserController {
     @CurrentUser() user: { sub: string },
     @Body() dto: SaveDeviceTokenDto,
   ) {
-    return this.userService.saveDeviceToken(user.sub, dto.token, dto.platform);
+    return this.userService.saveDeviceToken(user.sub, dto);
   }
 
   @Delete('me/device-tokens/:token')

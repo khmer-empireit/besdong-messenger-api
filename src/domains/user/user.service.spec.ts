@@ -67,6 +67,7 @@ describe('UserService', () => {
             updateSettings: jest.fn(),
             saveDeviceToken: jest.fn(),
             getDeviceTokens: jest.fn(),
+            listDeviceTokens: jest.fn(),
             removeDeviceToken: jest.fn(),
             purgeDeviceToken: jest.fn(),
           },
@@ -185,10 +186,11 @@ describe('UserService', () => {
   describe('saveDeviceToken', () => {
     it('delegates to repository', async () => {
       repo.saveDeviceToken.mockResolvedValue(undefined);
+      const dto = { token: 'fcm-token', platform: DevicePlatform.Android };
 
-      await service.saveDeviceToken('user-uuid-1', 'fcm-token', DevicePlatform.Android);
+      await service.saveDeviceToken('user-uuid-1', dto);
 
-      expect(repo.saveDeviceToken).toHaveBeenCalledWith('user-uuid-1', 'fcm-token', DevicePlatform.Android);
+      expect(repo.saveDeviceToken).toHaveBeenCalledWith('user-uuid-1', dto);
     });
   });
 
