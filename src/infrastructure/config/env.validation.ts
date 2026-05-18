@@ -92,6 +92,11 @@ class EnvironmentVariables {
   @IsOptional()
   STORAGE_CDN_URL: string;
 
+  // GIF search (optional — GIF endpoints return 400 if not set)
+  @IsString()
+  @IsOptional()
+  TENOR_API_KEY: string;
+
   // WebRTC TURN server (optional — falls back to Google STUN only)
   @IsString()
   @IsOptional()
