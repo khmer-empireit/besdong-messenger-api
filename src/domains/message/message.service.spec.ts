@@ -14,6 +14,7 @@ const mockParticipant = {
   joined_at: new Date('2026-01-01'),
   muted_until: null,
   last_read_at: null,
+  is_pinned: false,
 };
 
 const mockMessage = {
@@ -105,8 +106,8 @@ describe('MessageService', () => {
     convRepo.findById.mockResolvedValue(mockConversation);
     convRepo.getOfflineParticipantIds.mockResolvedValue([]);
     convRepo.getParticipants.mockResolvedValue([
-      { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-1', role: ParticipantRole.Member, joined_at: new Date(), muted_until: null, last_read_at: null },
-      { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-2', role: ParticipantRole.Member, joined_at: new Date(), muted_until: null, last_read_at: null },
+      { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-1', role: ParticipantRole.Member, joined_at: new Date(), muted_until: null, last_read_at: null, is_pinned: false },
+      { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-2', role: ParticipantRole.Member, joined_at: new Date(), muted_until: null, last_read_at: null, is_pinned: false },
     ]);
     blockRepo.isBlockedEither.mockResolvedValue(false);
     pushQueue.schedulePush.mockResolvedValue(undefined);

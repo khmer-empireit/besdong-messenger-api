@@ -57,11 +57,13 @@ export class ConversationController {
   @Get()
   @UseGuards(RateLimitGuard)
   @RateLimit(60, 60)
-  @ApiOperation({ summary: 'List my conversations' })
+  @ApiOperation({ summary: 'List my conversations with full enriched data' })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Pagination cursor (updated_at of last item)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Page size (default 20)' })
   @ApiResponse({ status: 200, type: ConversationListResponseDto })
   @ApiResponse({ status: 429, description: 'Too many requests' })
-  list(@CurrentUser() user: { sub: string }) {
-    return this.conversationService.list(user.sub);
+  list(@CurrentUser() user: { sub: string }, @Query('cursor') cursor?: string, @Query('limit') limit?: string) {
+    return this.conversationService.list(user.sub, cursor, limit ? parseInt(limit, 10) : 20);
   }
 
   @Get('search')
@@ -180,5 +182,27 @@ export class ConversationController {
   @ApiResponse({ status: 429, description: 'Too many requests' })
   unmute(@Param('id') id: string, @CurrentUser() user: { sub: string }) {
     return this.conversationService.unmute(id, user.sub);
+  }
+
+  @Post(':id/pin')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(20, 60)
+  @ApiOperation({ summary: 'Pin a conversation' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  pin(@Param('id') id: string, @CurrentUser() user: { sub: string }) {
+    return this.conversationService.pin(id, user.sub);
+  }
+
+  @Delete(':id/pin')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit(20, 60)
+  @ApiOperation({ summary: 'Unpin a conversation' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  unpin(@Param('id') id: string, @CurrentUser() user: { sub: string }) {
+    return this.conversationService.unpin(id, user.sub);
   }
 }

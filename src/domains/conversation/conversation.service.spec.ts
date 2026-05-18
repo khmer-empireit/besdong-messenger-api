@@ -32,6 +32,7 @@ const mockParticipantOwner = {
   joined_at: new Date('2026-01-01'),
   muted_until: null,
   last_read_at: null,
+  is_pinned: false,
 };
 
 const mockParticipantMember = {
@@ -41,6 +42,7 @@ const mockParticipantMember = {
   joined_at: new Date('2026-01-01'),
   muted_until: null,
   last_read_at: null,
+  is_pinned: false,
 };
 
 const mockUser = { id: 'user-uuid-1', username: 'user1' };
@@ -63,6 +65,7 @@ describe('ConversationService', () => {
             listForUser: jest.fn(),
             searchForUser: jest.fn(),
             update: jest.fn(),
+            pinConversation: jest.fn(),
             addParticipant: jest.fn(),
             removeParticipant: jest.fn(),
             getParticipant: jest.fn(),
@@ -157,13 +160,14 @@ describe('ConversationService', () => {
   // ── list ──────────────────────────────────────────────────────────────────
 
   describe('list', () => {
-    it('returns conversations for user', async () => {
-      repo.listForUser.mockResolvedValue([mockConvDirect]);
+    it('returns paginated conversations for user', async () => {
+      repo.listForUser.mockResolvedValue([mockConvDirect] as any);
 
       const result = await service.list('user-uuid-1');
 
-      expect(result).toHaveLength(1);
-      expect(repo.listForUser).toHaveBeenCalledWith('user-uuid-1');
+      expect(result.data).toHaveLength(1);
+      expect(result.pagination.has_more).toBe(false);
+      expect(repo.listForUser).toHaveBeenCalledWith('user-uuid-1', undefined, 21);
     });
   });
 
@@ -386,7 +390,7 @@ describe('ConversationService', () => {
 
   describe('search', () => {
     it('returns matching conversations', async () => {
-      repo.searchForUser.mockResolvedValue([mockConvGroup]);
+      repo.searchForUser.mockResolvedValue([mockConvGroup] as any);
 
       const result = await service.search('user-uuid-1', 'Test');
 

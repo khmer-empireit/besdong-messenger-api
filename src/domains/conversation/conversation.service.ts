@@ -54,13 +54,29 @@ export class ConversationService {
     return conv;
   }
 
-  async list(userId: string) {
-    return this.repo.listForUser(userId);
+  async list(userId: string, cursor?: string, limit = 20) {
+    const items = await this.repo.listForUser(userId, cursor, limit + 1);
+    const has_more = items.length > limit;
+    const data = has_more ? items.slice(0, limit) : items;
+    const next_cursor = has_more ? data[data.length - 1].updated_at.toISOString() : null;
+    return { data, pagination: { cursor: next_cursor, has_more, limit } };
   }
 
   async search(userId: string, query: string) {
     if (!query.trim()) throw new BadRequestException('Search query cannot be empty');
     return this.repo.searchForUser(userId, query.trim());
+  }
+
+  async pin(conversationId: string, userId: string) {
+    await this.assertParticipant(conversationId, userId);
+    await this.repo.pinConversation(conversationId, userId, true);
+    return { message: 'Conversation pinned' };
+  }
+
+  async unpin(conversationId: string, userId: string) {
+    await this.assertParticipant(conversationId, userId);
+    await this.repo.pinConversation(conversationId, userId, false);
+    return { message: 'Conversation unpinned' };
   }
 
   async findOrCreateDirect(userA: string, userB: string) {
