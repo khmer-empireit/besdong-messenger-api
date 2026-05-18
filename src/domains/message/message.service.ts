@@ -61,7 +61,8 @@ export class MessageService {
 
   async list(conversationId: string, userId: string, cursor?: string) {
     await this.assertParticipant(conversationId, userId);
-    return this.repo.list(conversationId, cursor, userId);
+    const messages = await this.repo.list(conversationId, cursor, userId);
+    return messages.map((m) => ({ ...m, is_me: m.sender_id === userId }));
   }
 
   async edit(conversationId: string, messageId: string, userId: string, dto: EditMessageDto) {
