@@ -19,6 +19,7 @@ import { HealthModule } from './domains/health/health.module';
 import { NotificationModule } from './domains/notification/notification.module';
 import { StoryModule } from './domains/story/story.module';
 import { CallModule } from './domains/call/call.module';
+import { StickerModule } from './domains/sticker/sticker.module';
 import { validate } from './infrastructure/config/env.validation';
 
 @Module({
@@ -45,6 +46,7 @@ import { validate } from './infrastructure/config/env.validation';
     NotificationModule,
     StoryModule,
     CallModule,
+    StickerModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -59,7 +59,7 @@ export class SendMessageDto {
   type?: MessageType = MessageType.Text;
 
   @ApiPropertyOptional({ example: 'Hello!' })
-  @ValidateIf((o) => o.type === MessageType.Text || o.type === undefined)
+  @ValidateIf((o) => !o.type || o.type === MessageType.Text || o.type === MessageType.Sticker)
   @IsString()
   @MinLength(1)
   content?: string;
