@@ -17,6 +17,8 @@ export class S3StorageProvider implements IStorageProvider {
       region: this.config.get<string>('STORAGE_REGION', 'us-east-1'),
       endpoint: this.config.get<string>('STORAGE_ENDPOINT'),
       forcePathStyle: true,
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
       credentials: {
         accessKeyId: this.config.get<string>('STORAGE_ACCESS_KEY')!,
         secretAccessKey: this.config.get<string>('STORAGE_SECRET_KEY')!,
