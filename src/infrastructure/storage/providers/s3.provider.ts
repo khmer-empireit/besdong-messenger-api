@@ -46,6 +46,7 @@ export class S3StorageProvider implements IStorageProvider {
         Bucket: this.bucket,
         Key: key,
         Body: buffer,
+        ContentLength: buffer.length,
         ContentType: mimeType,
         CacheControl: 'public, max-age=31536000, immutable',
       }),
