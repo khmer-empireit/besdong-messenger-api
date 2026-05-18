@@ -1,11 +1,12 @@
 import { Controller, Get, Param, ParseUUIDPipe, ParseIntPipe, Query, UseGuards, HttpStatus, DefaultValuePipe } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiExcludeController, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { StickerService } from './sticker.service';
 import { StickerPackListResponseDto, StickerPackWithStickersDto, GifSearchResponseDto } from './dto/sticker-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
 import { RateLimit } from '../../shared/decorators/rate-limit.decorator';
 
+@ApiExcludeController()
 @ApiTags('Stickers')
 @ApiBearerAuth()
 @UseGuards(JwtGuard)
