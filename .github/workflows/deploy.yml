@@ -41,7 +41,8 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             cd /var/www/besdong-messenger-api
-            git pull origin development
-            npm install --production=false
-            npm run build
+            sudo git pull origin development
+            sudo npm install --production=false
+            sudo npm run migrate:latest
+            sudo npm run build
             sudo pm2 restart besdong-api
