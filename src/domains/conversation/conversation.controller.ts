@@ -6,8 +6,7 @@ import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { AddMembersDto } from './dto/add-members.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { MuteConversationDto } from './dto/mute-conversation.dto';
-import { ConversationResponseDto, ConversationDetailResponseDto, ConversationListResponseDto } from './dto/conversation-response.dto';
-import { MessageResponseDto } from '../auth/dto/message-response.dto';
+import { ConversationResponseDto, ConversationDetailResponseDto, ConversationListResponseDto, ConversationSearchResponseDto, ConversationActionResponseDto } from './dto/conversation-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
 import { RateLimit } from '../../shared/decorators/rate-limit.decorator';
@@ -74,7 +73,7 @@ export class ConversationController {
     description: 'Groups are searched by name. Direct conversations are searched by the other user\'s username or display name.',
   })
   @ApiQuery({ name: 'q', required: true, description: 'Search query' })
-  @ApiResponse({ status: 200, type: ConversationListResponseDto })
+  @ApiResponse({ status: 200, type: ConversationSearchResponseDto })
   @ApiResponse({ status: 400, description: 'Query cannot be empty' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   search(@CurrentUser() user: { sub: string }, @Query('q') q: string) {
@@ -113,7 +112,7 @@ export class ConversationController {
   @UseGuards(RateLimitGuard)
   @RateLimit(10, 60)
   @ApiOperation({ summary: 'Add members to a group conversation' })
-  @ApiResponse({ status: 201, type: MessageResponseDto })
+  @ApiResponse({ status: 201, type: ConversationActionResponseDto })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   addMembers(
@@ -129,7 +128,7 @@ export class ConversationController {
   @UseGuards(RateLimitGuard)
   @RateLimit(10, 60)
   @ApiOperation({ summary: 'Promote or demote a member (owner only)' })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 200, type: ConversationActionResponseDto })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Member not found' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
@@ -147,7 +146,7 @@ export class ConversationController {
   @UseGuards(RateLimitGuard)
   @RateLimit(10, 60)
   @ApiOperation({ summary: 'Remove a member from a group (or leave yourself)' })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 200, type: ConversationActionResponseDto })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   removeMember(
@@ -163,7 +162,7 @@ export class ConversationController {
   @UseGuards(RateLimitGuard)
   @RateLimit(20, 60)
   @ApiOperation({ summary: 'Mute a conversation (30m / 1h / 8h / forever)' })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 200, type: ConversationActionResponseDto })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   mute(
     @Param('id') id: string,
@@ -178,7 +177,7 @@ export class ConversationController {
   @UseGuards(RateLimitGuard)
   @RateLimit(20, 60)
   @ApiOperation({ summary: 'Unmute a conversation' })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 200, type: ConversationActionResponseDto })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   unmute(@Param('id') id: string, @CurrentUser() user: { sub: string }) {
     return this.conversationService.unmute(id, user.sub);
@@ -189,7 +188,7 @@ export class ConversationController {
   @UseGuards(RateLimitGuard)
   @RateLimit(20, 60)
   @ApiOperation({ summary: 'Pin a conversation' })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 200, type: ConversationActionResponseDto })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   pin(@Param('id') id: string, @CurrentUser() user: { sub: string }) {
     return this.conversationService.pin(id, user.sub);
@@ -200,7 +199,7 @@ export class ConversationController {
   @UseGuards(RateLimitGuard)
   @RateLimit(20, 60)
   @ApiOperation({ summary: 'Unpin a conversation' })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 200, type: ConversationActionResponseDto })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   unpin(@Param('id') id: string, @CurrentUser() user: { sub: string }) {
     return this.conversationService.unpin(id, user.sub);

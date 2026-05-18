@@ -176,6 +176,11 @@ class ConversationDetailData extends ConversationData {
   participants: ParticipantData[];
 }
 
+class ConversationActionData {
+  @ApiProperty({ example: 'Conversation pinned' })
+  message: string;
+}
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 export class ConversationResponseDto {
@@ -200,4 +205,20 @@ export class ConversationListResponseDto {
 
   @ApiProperty({ type: ConversationListData })
   data: ConversationListData;
+}
+
+export class ConversationSearchResponseDto {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({ type: [ConversationListItemData] })
+  data: ConversationListItemData[];
+}
+
+export class ConversationActionResponseDto {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({ type: ConversationActionData })
+  data: ConversationActionData;
 }

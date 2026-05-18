@@ -6,7 +6,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { ForwardMessageDto } from './dto/forward-message.dto';
 import { AddReactionDto } from './dto/add-reaction.dto';
-import { MessageResponseDto, MessageListResponseDto, MessageActionResponseDto } from './dto/message-response.dto';
+import { MessageResponseDto, MessageListResponseDto, MessageActionResponseDto, ReactionListResponseDto } from './dto/message-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
 import { RateLimit } from '../../shared/decorators/rate-limit.decorator';
@@ -110,7 +110,7 @@ export class MessageController {
   @UseGuards(RateLimitGuard)
   @RateLimit(60, 60)
   @ApiOperation({ summary: 'Add a reaction to a message' })
-  @ApiResponse({ status: 201, description: 'Updated reactions for the message' })
+  @ApiResponse({ status: 201, type: ReactionListResponseDto })
   @ApiResponse({ status: 404, description: 'Message not found' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   async addReaction(
@@ -129,7 +129,7 @@ export class MessageController {
   @UseGuards(RateLimitGuard)
   @RateLimit(60, 60)
   @ApiOperation({ summary: 'Remove a reaction from a message' })
-  @ApiResponse({ status: 200, description: 'Updated reactions for the message' })
+  @ApiResponse({ status: 200, type: ReactionListResponseDto })
   @ApiResponse({ status: 404, description: 'Message not found' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   async removeReaction(
