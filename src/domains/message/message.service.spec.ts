@@ -4,9 +4,7 @@ import { MessageService } from './message.service';
 import { MessageRepository } from './message.repository';
 import { ConversationRepository } from '../conversation/conversation.repository';
 import { BlockRepository } from '../block/block.repository';
-import { UserService } from '../user/user.service';
-import { FirebaseService } from '../../infrastructure/firebase/firebase.service';
-import { AppLogger } from '../../infrastructure/logger/logger.service';
+import { PushQueueService } from '../../infrastructure/queue/push-queue.service';
 import { ConversationType, MessageType, ParticipantRole } from '../../shared/enums';
 
 const mockParticipant = {
@@ -47,8 +45,7 @@ describe('MessageService', () => {
   let repo: jest.Mocked<MessageRepository>;
   let convRepo: jest.Mocked<ConversationRepository>;
   let blockRepo: jest.Mocked<BlockRepository>;
-  let userService: jest.Mocked<UserService>;
-  let firebaseService: jest.Mocked<FirebaseService>;
+  let pushQueue: jest.Mocked<PushQueueService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -87,23 +84,10 @@ describe('MessageService', () => {
           },
         },
         {
-          provide: UserService,
+          provide: PushQueueService,
           useValue: {
-            getProfile: jest.fn(),
-            getSettings: jest.fn(),
-            getDeviceTokens: jest.fn(),
-            purgeDeviceToken: jest.fn(),
+            schedulePush: jest.fn(),
           },
-        },
-        {
-          provide: FirebaseService,
-          useValue: {
-            sendPush: jest.fn(),
-          },
-        },
-        {
-          provide: AppLogger,
-          useValue: { log: jest.fn(), error: jest.fn(), warn: jest.fn() },
         },
       ],
     }).compile();
@@ -112,8 +96,7 @@ describe('MessageService', () => {
     repo = module.get(MessageRepository);
     convRepo = module.get(ConversationRepository);
     blockRepo = module.get(BlockRepository);
-    userService = module.get(UserService);
-    firebaseService = module.get(FirebaseService);
+    pushQueue = module.get(PushQueueService);
 
     repo.softDelete.mockResolvedValue(undefined);
     repo.updateLastRead.mockResolvedValue(undefined);
@@ -126,6 +109,7 @@ describe('MessageService', () => {
       { conversation_id: 'conv-uuid-1', user_id: 'user-uuid-2', role: ParticipantRole.Member, joined_at: new Date(), muted_until: null, last_read_at: null },
     ]);
     blockRepo.isBlockedEither.mockResolvedValue(false);
+    pushQueue.schedulePush.mockResolvedValue(undefined);
   });
 
   // ── send ──────────────────────────────────────────────────────────────────
@@ -170,89 +154,34 @@ describe('MessageService', () => {
       expect(repo.create).not.toHaveBeenCalled();
     });
 
-    it('sends FCM push to offline recipients with notifications enabled', async () => {
-      jest.useFakeTimers();
+    it('enqueues a push job for each offline recipient', async () => {
       convRepo.getParticipant.mockResolvedValue(mockParticipant);
       repo.create.mockResolvedValue(mockMessage);
       convRepo.getOfflineParticipantIds.mockResolvedValue(['user-uuid-2']);
-      userService.getProfile.mockResolvedValue({ display_name: 'Test User', is_online: false } as any);
-      userService.getSettings.mockResolvedValue({
-        notifications_enabled: true,
-        do_not_disturb: false,
-        notify_messages: true,
-        notify_groups: true,
-      } as any);
-      userService.getDeviceTokens.mockResolvedValue(['fcm-token-abc']);
-      firebaseService.sendPush.mockResolvedValue([]);
-      repo.getUnreadCount.mockResolvedValue(3);
 
       await service.send('conv-uuid-1', 'user-uuid-1', { content: 'Hello!' });
-      // flush scheduleOfflinePushes async work
-      await Promise.resolve();
       await Promise.resolve();
 
       expect(convRepo.getOfflineParticipantIds).toHaveBeenCalledWith('conv-uuid-1', 'user-uuid-1');
-      expect(firebaseService.sendPush).not.toHaveBeenCalled(); // not yet — debounce pending
-
-      await jest.advanceTimersByTimeAsync(1001);
-
-      expect(firebaseService.sendPush).toHaveBeenCalledWith(
-        ['fcm-token-abc'],
-        'Test User',
-        'Hello! (3 new messages)',
-        { conversation_id: 'conv-uuid-1' },
+      expect(pushQueue.schedulePush).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: 'conv-uuid-1',
+          senderId: 'user-uuid-1',
+          recipientId: 'user-uuid-2',
+          messageId: 'msg-uuid-1',
+        }),
       );
-      jest.useRealTimers();
     });
 
-    it('skips push when recipient has notifications disabled', async () => {
-      jest.useFakeTimers();
+    it('skips push queue when there are no offline recipients', async () => {
       convRepo.getParticipant.mockResolvedValue(mockParticipant);
       repo.create.mockResolvedValue(mockMessage);
-      convRepo.getOfflineParticipantIds.mockResolvedValue(['user-uuid-2']);
-      userService.getProfile.mockResolvedValue({ display_name: 'Test User', is_online: false } as any);
-      userService.getSettings.mockResolvedValue({
-        notifications_enabled: false,
-        do_not_disturb: false,
-        notify_messages: true,
-        notify_groups: true,
-      } as any);
+      convRepo.getOfflineParticipantIds.mockResolvedValue([]);
 
       await service.send('conv-uuid-1', 'user-uuid-1', { content: 'Hello!' });
       await Promise.resolve();
-      await Promise.resolve();
-      await jest.advanceTimersByTimeAsync(1001);
 
-      expect(firebaseService.sendPush).not.toHaveBeenCalled();
-      jest.useRealTimers();
-    });
-
-    it('deduplicates rapid pushes — only fires once per recipient after debounce', async () => {
-      jest.useFakeTimers();
-      convRepo.getParticipant.mockResolvedValue(mockParticipant);
-      repo.create.mockResolvedValue(mockMessage);
-      convRepo.getOfflineParticipantIds.mockResolvedValue(['user-uuid-2']);
-      userService.getProfile.mockResolvedValue({ display_name: 'Test User', is_online: false } as any);
-      userService.getSettings.mockResolvedValue({
-        notifications_enabled: true,
-        do_not_disturb: false,
-        notify_messages: true,
-        notify_groups: true,
-      } as any);
-      userService.getDeviceTokens.mockResolvedValue(['fcm-token-abc']);
-      firebaseService.sendPush.mockResolvedValue([]);
-
-      // send 5 messages rapidly
-      for (let i = 0; i < 5; i++) {
-        await service.send('conv-uuid-1', 'user-uuid-1', { content: `msg ${i}` });
-        await Promise.resolve();
-        await Promise.resolve();
-      }
-
-      await jest.advanceTimersByTimeAsync(1001);
-
-      expect(firebaseService.sendPush).toHaveBeenCalledTimes(1);
-      jest.useRealTimers();
+      expect(pushQueue.schedulePush).not.toHaveBeenCalled();
     });
   });
 

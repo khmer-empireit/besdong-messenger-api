@@ -2,9 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { MessageRepository } from './message.repository';
 import { ConversationRepository } from '../conversation/conversation.repository';
 import { BlockRepository } from '../block/block.repository';
-import { UserService } from '../user/user.service';
-import { FirebaseService } from '../../infrastructure/firebase/firebase.service';
-import { AppLogger } from '../../infrastructure/logger/logger.service';
+import { PushQueueService, PushJobData } from '../../infrastructure/queue/push-queue.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { ForwardMessageDto } from './dto/forward-message.dto';
@@ -14,15 +12,11 @@ import { Message } from './entities/message.entity';
 
 @Injectable()
 export class MessageService {
-  private readonly pendingPushes = new Map<string, NodeJS.Timeout>();
-
   constructor(
     private repo: MessageRepository,
     private convRepo: ConversationRepository,
     private blockRepo: BlockRepository,
-    private userService: UserService,
-    private firebaseService: FirebaseService,
-    private logger: AppLogger,
+    private pushQueue: PushQueueService,
   ) {}
 
   async send(conversationId: string, userId: string, dto: SendMessageDto) {
@@ -61,7 +55,7 @@ export class MessageService {
       attachments: dto.attachments,
     });
     await this.convRepo.update(conversationId, { updated_at: new Date() });
-    void this.scheduleOfflinePushes(conversationId, conv!.type, userId, msg);
+    void this.queueOfflinePushes(conversationId, conv!.type, userId, msg);
     return msg;
   }
 
@@ -98,7 +92,7 @@ export class MessageService {
     const forwarded = await this.repo.forward(messageId, dto.target_conversation_id, userId);
     await this.convRepo.update(dto.target_conversation_id, { updated_at: new Date() });
     const targetConv = await this.convRepo.findById(dto.target_conversation_id);
-    void this.scheduleOfflinePushes(dto.target_conversation_id, targetConv!.type, userId, forwarded);
+    void this.queueOfflinePushes(dto.target_conversation_id, targetConv!.type, userId, forwarded);
     return forwarded;
   }
 
@@ -124,12 +118,16 @@ export class MessageService {
     return { message: 'Marked as read' };
   }
 
+  async getUnreadCount(conversationId: string, userId: string): Promise<number> {
+    return this.repo.getUnreadCount(conversationId, userId);
+  }
+
   private async assertParticipant(conversationId: string, userId: string) {
     const p = await this.convRepo.getParticipant(conversationId, userId);
     if (!p) throw new ForbiddenException('Not a member of this conversation');
   }
 
-  private async scheduleOfflinePushes(
+  private async queueOfflinePushes(
     conversationId: string,
     convType: ConversationType,
     senderId: string,
@@ -138,75 +136,19 @@ export class MessageService {
     try {
       const offlineIds = await this.convRepo.getOfflineParticipantIds(conversationId, senderId);
       for (const recipientId of offlineIds) {
-        this.schedulePush(conversationId, convType, senderId, recipientId, msg);
+        await this.pushQueue.schedulePush({
+          conversationId,
+          convType,
+          senderId,
+          recipientId,
+          messageId: msg.id,
+          messageType: msg.type,
+          messageContent: msg.content,
+          messageCreatedAt: msg.created_at.toISOString(),
+        } satisfies PushJobData);
       }
-    } catch (err) {
-      this.logger.error(`scheduleOfflinePushes failed: ${(err as Error).message}`, (err as Error).stack, 'Push');
-    }
-  }
-
-  private schedulePush(
-    conversationId: string,
-    convType: ConversationType,
-    senderId: string,
-    recipientId: string,
-    msg: Message,
-  ): void {
-    const key = `${conversationId}:${recipientId}`;
-    const existing = this.pendingPushes.get(key);
-    if (existing) clearTimeout(existing);
-
-    const timer = setTimeout(() => {
-      this.pendingPushes.delete(key);
-      this.firePush(conversationId, convType, senderId, recipientId, msg).catch((err) =>
-        this.logger.error(`firePush failed: ${(err as Error).message}`, (err as Error).stack, 'Push'),
-      );
-    }, 1000);
-
-    this.pendingPushes.set(key, timer);
-  }
-
-  private async firePush(
-    conversationId: string,
-    convType: ConversationType,
-    senderId: string,
-    recipientId: string,
-    msg: Message,
-  ): Promise<void> {
-    const profile = await this.userService.getProfile(recipientId);
-    if (profile.is_online) return;
-
-    const participant = await this.convRepo.getParticipant(conversationId, recipientId);
-    if (participant?.last_read_at && participant.last_read_at >= msg.created_at) return;
-
-    const settings = await this.userService.getSettings(recipientId);
-    if (!settings.notifications_enabled || settings.do_not_disturb) return;
-    if (convType === ConversationType.Direct && !settings.notify_messages) return;
-    if (convType === ConversationType.Group && !settings.notify_groups) return;
-
-    const tokens = await this.userService.getDeviceTokens(recipientId);
-    if (tokens.length === 0) return;
-
-    const [sender, unread] = await Promise.all([
-      this.userService.getProfile(senderId),
-      this.repo.getUnreadCount(conversationId, recipientId),
-    ]);
-
-    let body: string;
-    switch (msg.type) {
-      case MessageType.Image: body = 'Sent an image'; break;
-      case MessageType.Audio: body = 'Sent an audio message'; break;
-      case MessageType.File: body = 'Sent a file'; break;
-      default: body = msg.content.substring(0, 100);
-    }
-    if (unread > 1) body = `${body} (${unread} new messages)`;
-
-    this.logger.log(`push → userId=${recipientId} tokens=${tokens.length} unread=${unread} msg=${msg.id}`, 'Push');
-    const invalid = await this.firebaseService.sendPush(tokens, sender.display_name, body, {
-      conversation_id: conversationId,
-    });
-    for (const token of invalid) {
-      await this.userService.purgeDeviceToken(token);
+    } catch {
+      // fire-and-forget — do not break the send response
     }
   }
 }

@@ -18,5 +18,6 @@ import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
   ],
   controllers: [MessageController],
   providers: [MessageService, MessageRepository, MessageGateway, RateLimitGuard],
+  exports: [MessageService],
 })
 export class MessageModule {}
