@@ -1,13 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, randomUUID } from 'crypto';
 import { RedisService } from '../../infrastructure/cache/redis.service';
 import { MessageService } from '../message/message.service';
 import { CallSession } from './entities/call-session.entity';
+import { CallLogListItem } from './entities/call-log.entity';
+import { CallFilter, ICallRepository } from './interfaces/i-call.repository';
 import { CallStatus, CallType } from '../../shared/enums';
 
-const RINGING_TTL = 60;        // 60s — auto-expire if nobody answers
-const ACTIVE_TTL = 60 * 60;    // 1h — safety cap for active calls
+const RINGING_TTL = 60;
+const ACTIVE_TTL = 60 * 60;
 
 @Injectable()
 export class CallService {
@@ -15,6 +17,7 @@ export class CallService {
     private readonly redis: RedisService,
     private readonly messageService: MessageService,
     private readonly config: ConfigService,
+    @Inject(ICallRepository) private readonly callRepo: ICallRepository,
   ) {}
 
   async getActiveCall(conversationId: string): Promise<CallSession | null> {
@@ -61,6 +64,36 @@ export class CallService {
         : null;
 
     return { session, duration };
+  }
+
+  async saveCallLog(
+    session: CallSession,
+    status: 'answered' | 'missed' | 'declined',
+    duration: number | null,
+  ): Promise<void> {
+    await this.callRepo.save({
+      conversation_id: session.conversationId,
+      caller_id: session.callerId,
+      callee_id: session.calleeId,
+      call_type: session.callType === CallType.Video ? 'video' : 'audio',
+      status,
+      duration,
+      started_at: session.startedAt,
+      ended_at: new Date().toISOString(),
+    });
+  }
+
+  async listCallLogs(
+    userId: string,
+    filter: CallFilter,
+    cursor: string | null,
+    limit: number,
+  ): Promise<{ data: CallLogListItem[]; has_more: boolean; next_cursor: string | null }> {
+    const rows = await this.callRepo.list(userId, filter, cursor, limit);
+    const has_more = rows.length > limit;
+    const data = has_more ? rows.slice(0, limit) : rows;
+    const next_cursor = has_more ? data[data.length - 1].started_at : null;
+    return { data, has_more, next_cursor };
   }
 
   async writeCallLog(conversationId: string, senderId: string, content: string): Promise<void> {
