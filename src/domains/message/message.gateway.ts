@@ -42,6 +42,7 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
       });
       client.data.userId = payload.sub;
+      client.join(`user:${payload.sub}`);
       await this.userService.setOnlineStatus(payload.sub, true);
       this.server.emit('user:status', { user_id: payload.sub, is_online: true, last_seen_at: null });
     } catch {
@@ -195,6 +196,10 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
   broadcastReaction(conversationId: string, messageId: string, reactions: any[]) {
     this.server.to(conversationId).emit('message:reaction', { message_id: messageId, reactions });
+  }
+
+  broadcastStory(contactIds: string[], story: any) {
+    contactIds.forEach((id) => this.server.to(`user:${id}`).emit('story:new', story));
   }
 
   private async checkLimit(
