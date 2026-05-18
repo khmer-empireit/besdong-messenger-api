@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRepository } from './user.repository';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
@@ -17,7 +17,29 @@ export class UserService {
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     const user = await this.repo.findById(userId);
     if (!user) throw new NotFoundException('User not found');
+
+    if (dto.username) {
+      const existing = await this.repo.findByUsername(dto.username);
+      if (existing && existing.id !== userId) {
+        throw new ConflictException('Username is already taken.');
+      }
+    }
+
     return this.repo.updateProfile(userId, dto);
+  }
+
+  async getSharedMedia(
+    currentUserId: string,
+    targetUserId: string,
+    type: 'media' | 'document',
+    cursor?: string,
+    limit?: number,
+  ) {
+    const target = await this.repo.findById(targetUserId);
+    if (!target) throw new NotFoundException('User not found');
+
+    const types = type === 'media' ? ['image', 'video'] : ['file', 'audio'];
+    return this.repo.getSharedMedia(currentUserId, targetUserId, types, cursor, limit);
   }
 
   async getSettings(userId: string) {

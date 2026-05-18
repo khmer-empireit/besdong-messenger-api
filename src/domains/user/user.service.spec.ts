@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UserRepository } from './user.repository';
 import { DevicePlatform, UserRole } from '../../shared/enums';
@@ -60,8 +60,11 @@ describe('UserService', () => {
           provide: UserRepository,
           useValue: {
             findById: jest.fn(),
+            findByUsername: jest.fn(),
             findByIdentifier: jest.fn(),
             updateProfile: jest.fn(),
+            getSharedMedia: jest.fn(),
+            isContact: jest.fn(),
             search: jest.fn(),
             getSettings: jest.fn(),
             updateSettings: jest.fn(),
@@ -117,6 +120,69 @@ describe('UserService', () => {
 
       await expect(service.updateProfile('missing-id', { display_name: 'X' })).rejects.toThrow(NotFoundException);
       expect(repo.updateProfile).not.toHaveBeenCalled();
+    });
+
+    it('allows username update when username is available', async () => {
+      const updated = { ...mockUser, username: 'newname' };
+      repo.findById.mockResolvedValue(mockUser);
+      repo.findByUsername.mockResolvedValue(undefined);
+      repo.updateProfile.mockResolvedValue(updated);
+
+      const result = await service.updateProfile('user-uuid-1', { username: 'newname' });
+
+      expect(result.username).toBe('newname');
+      expect(repo.findByUsername).toHaveBeenCalledWith('newname');
+    });
+
+    it('allows username update when the taken username belongs to the same user', async () => {
+      repo.findById.mockResolvedValue(mockUser);
+      repo.findByUsername.mockResolvedValue(mockUser);
+      repo.updateProfile.mockResolvedValue(mockUser);
+
+      await service.updateProfile('user-uuid-1', { username: 'testuser' });
+
+      expect(repo.updateProfile).toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when username is taken by another user', async () => {
+      const otherUser = { ...mockUser, id: 'other-uuid', username: 'taken' };
+      repo.findById.mockResolvedValue(mockUser);
+      repo.findByUsername.mockResolvedValue(otherUser);
+
+      await expect(service.updateProfile('user-uuid-1', { username: 'taken' })).rejects.toThrow(ConflictException);
+      expect(repo.updateProfile).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── getSharedMedia ────────────────────────────────────────────────────────
+
+  describe('getSharedMedia', () => {
+    it('returns media items when target user exists', async () => {
+      const mockResult = { items: [], next_cursor: null };
+      repo.findById.mockResolvedValue(mockUser);
+      repo.getSharedMedia.mockResolvedValue(mockResult);
+
+      const result = await service.getSharedMedia('current-uuid', 'user-uuid-1', 'media');
+
+      expect(repo.getSharedMedia).toHaveBeenCalledWith('current-uuid', 'user-uuid-1', ['image', 'video'], undefined, undefined);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('uses document types for type=document', async () => {
+      const mockResult = { items: [], next_cursor: null };
+      repo.findById.mockResolvedValue(mockUser);
+      repo.getSharedMedia.mockResolvedValue(mockResult);
+
+      await service.getSharedMedia('current-uuid', 'user-uuid-1', 'document');
+
+      expect(repo.getSharedMedia).toHaveBeenCalledWith('current-uuid', 'user-uuid-1', ['file', 'audio'], undefined, undefined);
+    });
+
+    it('throws NotFoundException when target user does not exist', async () => {
+      repo.findById.mockResolvedValue(undefined);
+
+      await expect(service.getSharedMedia('current-uuid', 'missing-id', 'media')).rejects.toThrow(NotFoundException);
+      expect(repo.getSharedMedia).not.toHaveBeenCalled();
     });
   });
 

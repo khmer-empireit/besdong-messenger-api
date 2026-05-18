@@ -30,6 +30,7 @@ import {
   UserProfileListResponseDto,
   PublicProfileResponseDto,
 } from './dto/user-profile-response.dto';
+import { SharedMediaResponseDto } from './dto/shared-media-response.dto';
 import { UserSettingsResponseDto } from './dto/user-settings-response.dto';
 import { DeviceTokenListResponseDto, DeviceTokenActionResponseDto } from './dto/device-token-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
@@ -158,6 +159,40 @@ export class UserController {
     @Param('token') token: string,
   ) {
     return this.userService.removeDeviceToken(user.sub, token);
+  }
+
+  @Get(':id/shared-media')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(30, 60)
+  @ApiOperation({
+    summary: 'Get shared media or documents between current user and another user',
+    description: 'type=media returns images and videos. type=document returns files and audio.',
+  })
+  @ApiParam({ name: 'id', description: 'Target user ID' })
+  @ApiQuery({ name: 'type', enum: ['media', 'document'], required: true })
+  @ApiQuery({ name: 'cursor', required: false, description: 'ISO timestamp of last item for pagination' })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiResponse({ status: 200, type: SharedMediaResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid user ID or type' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  getSharedMedia(
+    @CurrentUser() user: { sub: string },
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST })) id: string,
+    @Query('type') type: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!type || !['media', 'document'].includes(type)) {
+      throw new BadRequestException('type must be "media" or "document"');
+    }
+    return this.userService.getSharedMedia(
+      user.sub,
+      id,
+      type as 'media' | 'document',
+      cursor,
+      limit ? parseInt(limit, 10) : undefined,
+    );
   }
 
   @Get(':id')

@@ -5,10 +5,12 @@ import { SaveDeviceTokenDto } from '../dto/save-device-token.dto';
 
 export interface IUserRepository {
   findById(id: string): Promise<UserProfile | undefined>;
+  findByUsername(username: string): Promise<UserProfile | undefined>;
   findByIdentifier(identifier: string): Promise<UserProfile[]>;
   findByName(query: string, limit?: number, offset?: number): Promise<UserProfile[]>;
   findByBdNumber(bdNumber: string): Promise<UserProfile[]>;
-  updateProfile(id: string, data: Partial<Pick<UserProfile, 'bd_number' | 'display_name' | 'avatar_url' | 'bio' | 'dob'>>): Promise<UserProfile>;
+  updateProfile(id: string, data: Partial<Pick<UserProfile, 'username' | 'bd_number' | 'display_name' | 'avatar_url' | 'bio' | 'dob'>>): Promise<UserProfile>;
+  getSharedMedia(currentUserId: string, targetUserId: string, types: string[], cursor?: string, limit?: number): Promise<{ items: any[]; next_cursor: string | null }>;
   search(query: string): Promise<UserProfile[]>;
   getSettings(userId: string): Promise<UserSettings | undefined>;
   updateSettings(userId: string, data: Partial<Omit<UserSettings, 'user_id' | 'created_at' | 'updated_at'>>): Promise<UserSettings>;

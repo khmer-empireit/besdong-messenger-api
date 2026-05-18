@@ -14,6 +14,10 @@ export class UserRepository implements IUserRepository {
     return this.db.knex('users').where({ id }).first() as Promise<UserProfile | undefined>;
   }
 
+  async findByUsername(username: string): Promise<UserProfile | undefined> {
+    return this.db.knex('users').whereRaw('LOWER(username) = LOWER(?)', [username]).first() as Promise<UserProfile | undefined>;
+  }
+
   async findByName(query: string, limit = 20, offset = 0): Promise<UserProfile[]> {
     return this.db
       .knex('users')
@@ -35,10 +39,52 @@ export class UserRepository implements IUserRepository {
 
   async updateProfile(
     id: string,
-    data: Partial<Pick<UserProfile, 'display_name' | 'avatar_url' | 'bio' | 'dob'>>,
+    data: Partial<Pick<UserProfile, 'username' | 'display_name' | 'avatar_url' | 'bio' | 'dob'>>,
   ): Promise<UserProfile> {
     const [user] = await this.db.knex('users').where({ id }).update(data).returning('*');
     return user as UserProfile;
+  }
+
+  async getSharedMedia(
+    currentUserId: string,
+    targetUserId: string,
+    types: string[],
+    cursor?: string,
+    limit = 20,
+  ): Promise<{ items: any[]; next_cursor: string | null }> {
+    const db = this.db.knex;
+    let query = db('message_attachments as ma')
+      .join('messages as m', 'ma.message_id', 'm.id')
+      .join('conversations as c', 'm.conversation_id', 'c.id')
+      .whereExists(
+        db('conversation_participants as cp1')
+          .whereRaw('cp1.conversation_id = c.id')
+          .where('cp1.user_id', currentUserId)
+          .select(db.raw('1')),
+      )
+      .whereExists(
+        db('conversation_participants as cp2')
+          .whereRaw('cp2.conversation_id = c.id')
+          .where('cp2.user_id', targetUserId)
+          .select(db.raw('1')),
+      )
+      .where('c.type', 'direct')
+      .whereNull('m.deleted_at')
+      .whereIn('ma.type', types)
+      .select('ma.*')
+      .orderBy('ma.created_at', 'desc')
+      .limit(limit + 1);
+
+    if (cursor) {
+      query = query.where('ma.created_at', '<', cursor);
+    }
+
+    const rows = await query;
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    const next_cursor = hasMore ? (items[items.length - 1].created_at as Date).toISOString() : null;
+
+    return { items, next_cursor };
   }
 
   async search(query: string): Promise<UserProfile[]> {
