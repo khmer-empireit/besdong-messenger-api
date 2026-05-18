@@ -17,6 +17,7 @@ import { AdminModule } from './domains/admin/admin.module';
 import { BlockModule } from './domains/block/block.module';
 import { HealthModule } from './domains/health/health.module';
 import { NotificationModule } from './domains/notification/notification.module';
+import { StoryModule } from './domains/story/story.module';
 import { validate } from './infrastructure/config/env.validation';
 
 @Module({
@@ -41,6 +42,7 @@ import { validate } from './infrastructure/config/env.validation';
     BlockModule,
     HealthModule,
     NotificationModule,
+    StoryModule,
   ],
 })
 export class AppModule implements NestModule {
