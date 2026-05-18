@@ -58,6 +58,22 @@ export class ConversationService {
     return this.repo.listForUser(userId);
   }
 
+  async search(userId: string, query: string) {
+    if (!query.trim()) throw new BadRequestException('Search query cannot be empty');
+    return this.repo.searchForUser(userId, query.trim());
+  }
+
+  async findOrCreateDirect(userA: string, userB: string) {
+    const existing = await this.repo.findDirectBetween(userA, userB);
+    if (existing) return existing;
+    const conv = await this.repo.create({ type: ConversationType.Direct, created_by: userA });
+    await Promise.all([
+      this.repo.addParticipant({ conversation_id: conv.id, user_id: userA, role: ParticipantRole.Owner }),
+      this.repo.addParticipant({ conversation_id: conv.id, user_id: userB, role: ParticipantRole.Member }),
+    ]);
+    return conv;
+  }
+
   async get(conversationId: string, userId: string) {
     const conv = await this.repo.findById(conversationId);
     if (!conv) throw new NotFoundException('Conversation not found');

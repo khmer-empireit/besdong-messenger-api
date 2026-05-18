@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConversationService } from './conversation.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
@@ -62,6 +62,21 @@ export class ConversationController {
   @ApiResponse({ status: 429, description: 'Too many requests' })
   list(@CurrentUser() user: { sub: string }) {
     return this.conversationService.list(user.sub);
+  }
+
+  @Get('search')
+  @UseGuards(RateLimitGuard)
+  @RateLimit(30, 60)
+  @ApiOperation({
+    summary: 'Search conversations',
+    description: 'Groups are searched by name. Direct conversations are searched by the other user\'s username or display name.',
+  })
+  @ApiQuery({ name: 'q', required: true, description: 'Search query' })
+  @ApiResponse({ status: 200, type: ConversationListResponseDto })
+  @ApiResponse({ status: 400, description: 'Query cannot be empty' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  search(@CurrentUser() user: { sub: string }, @Query('q') q: string) {
+    return this.conversationService.search(user.sub, q || '');
   }
 
   @Get(':id')

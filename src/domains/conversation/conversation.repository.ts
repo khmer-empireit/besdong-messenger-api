@@ -55,6 +55,42 @@ export class ConversationRepository implements IConversationRepository {
       .orderBy('c.updated_at', 'desc') as Promise<Conversation[]>;
   }
 
+  async searchForUser(userId: string, query: string): Promise<Conversation[]> {
+    const like = `%${query}%`;
+    return this.db
+      .knex('conversations as c')
+      .join('participants as p', function () {
+        this.on('p.conversation_id', 'c.id').andOnVal('p.user_id', userId);
+      })
+      .leftJoin(
+        this.db.knex.raw(
+          `participants as p2 ON p2.conversation_id = c.id AND p2.user_id != ? AND c.type = ?`,
+          [userId, ConversationType.Direct],
+        ),
+      )
+      .leftJoin('users as u', 'u.id', 'p2.user_id')
+      .where(function () {
+        this.where(function () {
+          this.where('c.type', ConversationType.Group).andWhere('c.name', 'ilike', like);
+        }).orWhere(function () {
+          this.where('c.type', ConversationType.Direct).andWhere(function () {
+            this.where('u.username', 'ilike', like).orWhere('u.display_name', 'ilike', like);
+          });
+        });
+      })
+      .select(
+        'c.*',
+        'p.last_read_at',
+        this.db.knex.raw(`(
+          SELECT COUNT(*)::int FROM messages m
+          WHERE m.conversation_id = c.id
+            AND m.deleted_at IS NULL
+            AND (p.last_read_at IS NULL OR m.created_at > p.last_read_at)
+        ) AS unread_count`),
+      )
+      .orderBy('c.updated_at', 'desc') as Promise<Conversation[]>;
+  }
+
   async update(
     id: string,
     data: Partial<Pick<Conversation, 'name' | 'avatar_url' | 'updated_at'>>,

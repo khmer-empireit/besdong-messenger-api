@@ -6,12 +6,14 @@ import {
 } from '@nestjs/common';
 import { ContactRepository } from './contact.repository';
 import { UserService } from '../user/user.service';
+import { ConversationService } from '../conversation/conversation.service';
 
 @Injectable()
 export class ContactService {
   constructor(
     private contactRepo: ContactRepository,
     private userService: UserService,
+    private conversationService: ConversationService,
   ) {}
 
   async findUsers(query: string, type: 'name' | 'bd_number', page = 1, limit = 20) {
@@ -44,7 +46,9 @@ export class ContactService {
     const existing = await this.contactRepo.findOne(ownerId, contactId);
     if (existing) throw new ConflictException('Contact already added');
 
-    return this.contactRepo.add(ownerId, contactId);
+    const contact = await this.contactRepo.add(ownerId, contactId);
+    await this.conversationService.findOrCreateDirect(ownerId, contactId);
+    return contact;
   }
 
   async removeContact(ownerId: string, contactId: string) {
