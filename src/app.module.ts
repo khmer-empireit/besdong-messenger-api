@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { CacheModule } from './infrastructure/cache/cache.module';
+import { PushQueueModule } from './infrastructure/queue/push-queue.module';
 import { FirebaseModule } from './infrastructure/firebase/firebase.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { LoggerModule } from './infrastructure/logger/logger.module';
@@ -15,6 +16,7 @@ import { ContactModule } from './domains/contact/contact.module';
 import { AdminModule } from './domains/admin/admin.module';
 import { BlockModule } from './domains/block/block.module';
 import { HealthModule } from './domains/health/health.module';
+import { NotificationModule } from './domains/notification/notification.module';
 import { validate } from './infrastructure/config/env.validation';
 
 @Module({
@@ -26,6 +28,7 @@ import { validate } from './infrastructure/config/env.validation';
     LoggerModule,
     DatabaseModule,
     CacheModule,
+    PushQueueModule,
     FirebaseModule,
     StorageModule,
     AuthModule,
@@ -37,6 +40,7 @@ import { validate } from './infrastructure/config/env.validation';
     AdminModule,
     BlockModule,
     HealthModule,
+    NotificationModule,
   ],
 })
 export class AppModule implements NestModule {
