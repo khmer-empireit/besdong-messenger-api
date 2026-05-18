@@ -91,6 +91,19 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   STORAGE_CDN_URL: string;
+
+  // WebRTC TURN server (optional — falls back to Google STUN only)
+  @IsString()
+  @IsOptional()
+  STUN_HOST: string;
+
+  @IsString()
+  @IsOptional()
+  TURN_HOST: string;
+
+  @IsString()
+  @IsOptional()
+  TURN_SECRET: string;
 }
 
 export function validate(config: Record<string, unknown>) {

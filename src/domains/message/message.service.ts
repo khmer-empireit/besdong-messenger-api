@@ -122,6 +122,15 @@ export class MessageService {
     return this.repo.getUnreadCount(conversationId, userId);
   }
 
+  async createCallLog(conversationId: string, senderId: string, content: string): Promise<void> {
+    await this.repo.create({
+      conversation_id: conversationId,
+      sender_id: senderId,
+      content,
+      type: MessageType.CallLog,
+    });
+  }
+
   private async assertParticipant(conversationId: string, userId: string) {
     const p = await this.convRepo.getParticipant(conversationId, userId);
     if (!p) throw new ForbiddenException('Not a member of this conversation');
