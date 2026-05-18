@@ -3,7 +3,8 @@ import { DbService } from '../../infrastructure/database/db.service';
 import { IUserRepository } from './interfaces/user-repository.interface';
 import { UserProfile } from './entities/user-profile.entity';
 import { UserSettings } from './entities/user-settings.entity';
-import { DevicePlatform } from '../../shared/enums';
+import { DeviceToken } from './entities/device-token.entity';
+import { SaveDeviceTokenDto } from './dto/save-device-token.dto';
 
 @Injectable()
 export class UserRepository implements IUserRepository {
@@ -78,17 +79,41 @@ export class UserRepository implements IUserRepository {
     await this.db.knex('users').where({ id: userId }).update(update);
   }
 
-  async saveDeviceToken(userId: string, token: string, platform: DevicePlatform): Promise<void> {
+  async saveDeviceToken(userId: string, dto: SaveDeviceTokenDto): Promise<void> {
     await this.db
       .knex('device_tokens')
-      .insert({ user_id: userId, token, platform })
+      .insert({
+        user_id: userId,
+        token: dto.token,
+        platform: dto.platform,
+        device_name: dto.device_name ?? null,
+        os_version: dto.os_version ?? null,
+        app_version: dto.app_version ?? null,
+        address: dto.address ?? null,
+        last_login_at: this.db.knex.fn.now(),
+      })
       .onConflict('token')
-      .merge({ user_id: userId });
+      .merge({
+        user_id: userId,
+        device_name: dto.device_name ?? null,
+        os_version: dto.os_version ?? null,
+        app_version: dto.app_version ?? null,
+        address: dto.address ?? null,
+        last_login_at: this.db.knex.fn.now(),
+      });
   }
 
   async getDeviceTokens(userId: string): Promise<string[]> {
     const rows = await this.db.knex('device_tokens').where({ user_id: userId }).select('token');
     return rows.map((r: { token: string }) => r.token);
+  }
+
+  async listDeviceTokens(userId: string): Promise<DeviceToken[]> {
+    const rows = await this.db
+      .knex('device_tokens')
+      .where({ user_id: userId })
+      .orderBy('last_login_at', 'desc');
+    return rows.map((r: Omit<DeviceToken, 'is_active'>) => ({ ...r, is_active: true }));
   }
 
   async removeDeviceToken(userId: string, token: string): Promise<void> {

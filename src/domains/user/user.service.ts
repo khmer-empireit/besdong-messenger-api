@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { UserRepository } from './user.repository';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
-import { DevicePlatform } from '../../shared/enums';
+import { SaveDeviceTokenDto } from './dto/save-device-token.dto';
 
 @Injectable()
 export class UserService {
@@ -52,8 +52,8 @@ export class UserService {
     await this.repo.setOnlineStatus(userId, isOnline, lastSeenAt);
   }
 
-  async saveDeviceToken(userId: string, token: string, platform: DevicePlatform): Promise<void> {
-    await this.repo.saveDeviceToken(userId, token, platform);
+  async saveDeviceToken(userId: string, dto: SaveDeviceTokenDto): Promise<void> {
+    await this.repo.saveDeviceToken(userId, dto);
   }
 
   async removeDeviceToken(userId: string, token: string): Promise<void> {
@@ -62,6 +62,10 @@ export class UserService {
 
   async getDeviceTokens(userId: string): Promise<string[]> {
     return this.repo.getDeviceTokens(userId);
+  }
+
+  async listDeviceTokens(userId: string) {
+    return this.repo.listDeviceTokens(userId);
   }
 
   async purgeDeviceToken(token: string): Promise<void> {
