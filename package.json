@@ -13,8 +13,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "deploy": "git pull origin development && npm run build && pm2 restart besdong-api"
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
