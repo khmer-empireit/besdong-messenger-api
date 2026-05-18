@@ -7,6 +7,7 @@ export interface IConversationRepository {
   findById(id: string): Promise<Conversation | undefined>;
   findDirectBetween(userA: string, userB: string): Promise<Conversation | undefined>;
   listForUser(userId: string): Promise<Conversation[]>;
+  searchForUser(userId: string, query: string): Promise<Conversation[]>;
   update(id: string, data: Partial<Pick<Conversation, 'name' | 'avatar_url' | 'updated_at'>>): Promise<Conversation>;
 
   addParticipant(data: { conversation_id: string; user_id: string; role?: ParticipantRole }): Promise<void>;

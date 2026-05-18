@@ -61,6 +61,7 @@ describe('ConversationService', () => {
             findById: jest.fn(),
             findDirectBetween: jest.fn(),
             listForUser: jest.fn(),
+            searchForUser: jest.fn(),
             update: jest.fn(),
             addParticipant: jest.fn(),
             removeParticipant: jest.fn(),
@@ -378,6 +379,57 @@ describe('ConversationService', () => {
 
       expect(result).toEqual({ message: 'Conversation unmuted' });
       expect(repo.setMute).toHaveBeenCalledWith('conv-uuid-1', 'user-uuid-1', null);
+    });
+  });
+
+  // ── search ────────────────────────────────────────────────────────────────
+
+  describe('search', () => {
+    it('returns matching conversations', async () => {
+      repo.searchForUser.mockResolvedValue([mockConvGroup]);
+
+      const result = await service.search('user-uuid-1', 'Test');
+
+      expect(result).toEqual([mockConvGroup]);
+      expect(repo.searchForUser).toHaveBeenCalledWith('user-uuid-1', 'Test');
+    });
+
+    it('returns empty array when no matches', async () => {
+      repo.searchForUser.mockResolvedValue([]);
+
+      const result = await service.search('user-uuid-1', 'noresult');
+
+      expect(result).toEqual([]);
+    });
+
+    it('throws BadRequestException when query is empty', async () => {
+      await expect(service.search('user-uuid-1', '')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ── findOrCreateDirect ────────────────────────────────────────────────────
+
+  describe('findOrCreateDirect', () => {
+    it('returns existing conversation if found', async () => {
+      repo.findDirectBetween.mockResolvedValue(mockConvDirect);
+
+      const result = await service.findOrCreateDirect('user-uuid-1', 'user-uuid-2');
+
+      expect(result).toEqual(mockConvDirect);
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+
+    it('creates new direct conversation when none exists', async () => {
+      repo.findDirectBetween.mockResolvedValue(undefined);
+      repo.create.mockResolvedValue(mockConvDirect);
+
+      const result = await service.findOrCreateDirect('user-uuid-1', 'user-uuid-2');
+
+      expect(result).toEqual(mockConvDirect);
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ type: ConversationType.Direct, created_by: 'user-uuid-1' }),
+      );
+      expect(repo.addParticipant).toHaveBeenCalledTimes(2);
     });
   });
 });
