@@ -31,6 +31,7 @@ import {
   PublicProfileResponseDto,
 } from './dto/user-profile-response.dto';
 import { UserSettingsResponseDto } from './dto/user-settings-response.dto';
+import { DeviceTokenListResponseDto, DeviceTokenActionResponseDto } from './dto/device-token-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
 import { RateLimit } from '../../shared/decorators/rate-limit.decorator';
@@ -124,7 +125,7 @@ export class UserController {
   @UseGuards(RateLimitGuard)
   @RateLimit(30, 60)
   @ApiOperation({ summary: 'List registered devices for the current user' })
-  @ApiResponse({ status: 200, description: 'Device list' })
+  @ApiResponse({ status: 200, type: DeviceTokenListResponseDto })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   listDeviceTokens(@CurrentUser() user: { sub: string }) {
     return this.userService.listDeviceTokens(user.sub);
@@ -135,7 +136,7 @@ export class UserController {
   @UseGuards(RateLimitGuard)
   @RateLimit(10, 60)
   @ApiOperation({ summary: 'Register or update an FCM device token' })
-  @ApiResponse({ status: 200, description: 'Token saved' })
+  @ApiResponse({ status: 200, type: DeviceTokenActionResponseDto })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   saveDeviceToken(
     @CurrentUser() user: { sub: string },
@@ -150,7 +151,7 @@ export class UserController {
   @RateLimit(20, 60)
   @ApiOperation({ summary: 'Unregister an FCM device token' })
   @ApiParam({ name: 'token', description: 'FCM device token to unregister' })
-  @ApiResponse({ status: 200, description: 'Token removed' })
+  @ApiResponse({ status: 200, type: DeviceTokenActionResponseDto })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   removeDeviceToken(
     @CurrentUser() user: { sub: string },

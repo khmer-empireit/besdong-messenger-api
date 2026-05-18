@@ -34,6 +34,13 @@ export interface ForwardedFromMessage {
   type: MessageType;
 }
 
+export interface SenderProfile {
+  id: string;
+  name: string;
+  username: string;
+  avatar_url: string | null;
+}
+
 export interface ReactionSummary {
   emoji: string;
   count: number;
@@ -54,6 +61,7 @@ export interface Message {
   edited_at: Date | null;
   deleted_at: Date | null;
   created_at: Date;
+  sender_profile?: SenderProfile | null;
   attachments?: MessageAttachment[];
   reactions?: ReactionSummary[];
 }

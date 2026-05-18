@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, UseGu
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { StoryService } from './story.service';
 import { CreateStoryDto } from './dto/create-story.dto';
-import { StoryResponseDto, StoryListResponseDto, StoryWithMetaResponseDto, StoryViewerResponseDto } from './dto/story-response.dto';
+import { StoryResponseDto, StoryListResponseDto, StoryWithMetaResponseDto, StoryViewerListResponseDto, StoryActionResponseDto } from './dto/story-response.dto';
 import { JwtGuard } from '../../shared/guards/jwt.guard';
 import { RateLimitGuard } from '../../shared/guards/rate-limit.guard';
 import { RateLimit } from '../../shared/decorators/rate-limit.decorator';
@@ -67,7 +67,7 @@ export class StoryController {
   @RateLimit(20, 60)
   @ApiOperation({ summary: 'Delete own story' })
   @ApiParam({ name: 'id', description: 'Story ID' })
-  @ApiResponse({ status: 200, description: 'Story deleted' })
+  @ApiResponse({ status: 200, type: StoryActionResponseDto })
   @ApiResponse({ status: 403, description: 'Cannot delete another user\'s story' })
   @ApiResponse({ status: 404, description: 'Story not found' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
@@ -80,7 +80,7 @@ export class StoryController {
   @RateLimit(30, 60)
   @ApiOperation({ summary: 'Get viewers of a story (owner only)' })
   @ApiParam({ name: 'id', description: 'Story ID' })
-  @ApiResponse({ status: 200, type: [StoryViewerResponseDto] })
+  @ApiResponse({ status: 200, type: StoryViewerListResponseDto })
   @ApiResponse({ status: 403, description: 'Only the story owner can view this' })
   @ApiResponse({ status: 404, description: 'Story not found' })
   @ApiResponse({ status: 429, description: 'Too many requests' })

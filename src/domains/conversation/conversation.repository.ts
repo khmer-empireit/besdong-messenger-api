@@ -98,7 +98,7 @@ export class ConversationRepository implements IConversationRepository {
         ) AS participants
       FROM conversations c
       JOIN participants p ON p.conversation_id = c.id AND p.user_id = ?
-      WHERE (? IS NULL OR (p.is_pinned = false AND c.updated_at < ?))
+      WHERE (?::timestamptz IS NULL OR (p.is_pinned = false AND c.updated_at < ?))
       ORDER BY p.is_pinned DESC, c.updated_at DESC
       LIMIT ?
       `,
