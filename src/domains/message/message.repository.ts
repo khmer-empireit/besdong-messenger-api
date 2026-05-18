@@ -163,9 +163,17 @@ export class MessageRepository implements IMessageRepository {
       reactionsByMessageId[r.message_id].push(r);
     }
 
+    const senderIds = [...new Set(messages.map((m) => m.sender_id).filter(Boolean))] as string[];
+    const senderMap: Record<string, { id: string; name: string; username: string; avatar_url: string | null }> = {};
+    if (senderIds.length > 0) {
+      const users = await this.db.knex('users').whereIn('id', senderIds).select('id', 'display_name', 'username', 'avatar_url');
+      for (const u of users) senderMap[u.id] = { id: u.id, name: u.display_name, username: u.username, avatar_url: u.avatar_url };
+    }
+
     return messages.map((m) => ({
       ...m,
       content: m.deleted_at ? '' : m.content,
+      sender_profile: m.sender_id ? (senderMap[m.sender_id] ?? null) : null,
       attachments: m.deleted_at ? [] : (attachmentsByMessageId[m.id] ?? []),
       reply_to: m.reply_to_id ? (relatedMap[m.reply_to_id] ?? null) : null,
       forwarded_from: m.forwarded_from_id ? (relatedMap[m.forwarded_from_id] ?? null) : null,

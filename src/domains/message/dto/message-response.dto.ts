@@ -1,6 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MessageType, AttachmentType } from '../../../shared/enums';
 
+class SenderProfileData {
+  @ApiProperty({ example: 'ebced2f7-e8a6-4bd9-9f96-5e6fb129a434' })
+  id: string;
+
+  @ApiProperty({ example: 'Sokheng Updated' })
+  name: string;
+
+  @ApiProperty({ example: 'srengsokheng' })
+  username: string;
+
+  @ApiProperty({ example: 'https://cdn.example.com/avatar.webp', nullable: true })
+  avatar_url: string | null;
+}
+
 class AttachmentData {
   @ApiProperty({ example: 'uuid' })
   id: string;
@@ -65,14 +79,14 @@ class ReactionData {
 }
 
 class MessageData {
-  @ApiProperty({ example: 'uuid' })
+  @ApiProperty({ example: 'dd68cda2-a9de-436e-a2c6-da7f806c265f' })
   id: string;
 
-  @ApiProperty({ example: 'uuid' })
+  @ApiProperty({ example: '9699b83b-6303-4c73-8af5-03a4b660e66e' })
   conversation_id: string;
 
-  @ApiProperty({ example: 'uuid', nullable: true })
-  sender_id: string | null;
+  @ApiProperty({ type: SenderProfileData, nullable: true })
+  sender_profile: SenderProfileData | null;
 
   @ApiProperty({ example: 'Hello!' })
   content: string;
@@ -104,6 +118,9 @@ class MessageData {
   @ApiProperty()
   created_at: Date;
 
+  @ApiProperty({ example: true, description: 'True when the message was sent by the requesting user' })
+  is_me: boolean;
+
   @ApiProperty({ type: [AttachmentData] })
   attachments: AttachmentData[];
 
@@ -112,7 +129,7 @@ class MessageData {
 }
 
 class MessageActionData {
-  @ApiProperty({ example: 'Success' })
+  @ApiProperty({ example: 'Message deleted' })
   message: string;
 }
 
