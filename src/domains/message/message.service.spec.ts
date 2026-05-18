@@ -35,6 +35,7 @@ const mockConversation = {
   id: 'conv-uuid-1',
   type: ConversationType.Direct,
   name: null,
+  description: null,
   avatar_url: null,
   created_by: 'user-uuid-1',
   created_at: new Date('2026-01-01'),

@@ -3,6 +3,7 @@ export enum MessageType {
   Image = 'image',
   File = 'file',
   Audio = 'audio',
+  Sticker = 'sticker',
   CallLog = 'call_log',
   System = 'system',
 }
