@@ -95,11 +95,14 @@ export class CallGateway {
       conversation_id: data.conversation_id,
     });
 
-    await this.callService.writeCallLog(
-      data.conversation_id,
-      session.callerId,
-      `${session.callType === CallType.Video ? 'Video' : 'Audio'} call • Declined`,
-    );
+    await Promise.all([
+      this.callService.writeCallLog(
+        data.conversation_id,
+        session.callerId,
+        `${session.callType === CallType.Video ? 'Video' : 'Audio'} call • Declined`,
+      ),
+      this.callService.saveCallLog(session, 'declined', null),
+    ]);
   }
 
   @SubscribeMessage('call:ice-candidate')
@@ -117,6 +120,24 @@ export class CallGateway {
     this.server.to(`user:${targetId}`).emit('call:ice-candidate', {
       conversation_id: data.conversation_id,
       candidate: data.candidate,
+    });
+  }
+
+  @SubscribeMessage('call:sdp')
+  async onSdp(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversation_id: string; sdp: object },
+  ) {
+    const userId = client.data.userId as string | undefined;
+    if (!userId) return;
+
+    const session = await this.callService.getActiveCall(data.conversation_id);
+    if (!session) return;
+
+    const targetId = session.callerId === userId ? session.calleeId : session.callerId;
+    this.server.to(`user:${targetId}`).emit('call:sdp', {
+      conversation_id: data.conversation_id,
+      sdp: data.sdp,
     });
   }
 
@@ -142,7 +163,11 @@ export class CallGateway {
 
     const label = session.callType === CallType.Video ? 'Video call' : 'Audio call';
     const content = duration !== null ? `${label} • ${formatDuration(duration)}` : `${label} • No answer`;
-    await this.callService.writeCallLog(data.conversation_id, session.callerId, content);
+    const status = duration !== null ? 'answered' : 'missed';
+    await Promise.all([
+      this.callService.writeCallLog(data.conversation_id, session.callerId, content),
+      this.callService.saveCallLog(session, status, duration),
+    ]);
   }
 }
 

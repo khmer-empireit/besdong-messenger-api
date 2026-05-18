@@ -132,6 +132,36 @@
     /* Scrollbar */
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: #37474f; border-radius: 4px; }
+
+    /* Incoming call */
+    #incoming-call-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.78); z-index: 300; justify-content: center; align-items: center; }
+    #incoming-call-overlay.open { display: flex; }
+    #incoming-call-box { background: #16213e; border: 1px solid #0f3460; border-radius: 20px; padding: 32px 40px; display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 240px; }
+    #incoming-call-box .ic-avatar { font-size: 3.2rem; }
+    #incoming-call-box .ic-name { font-size: 1rem; font-weight: 600; color: #e0e0e0; }
+    #incoming-call-box .ic-type { font-size: 0.85rem; color: #78909c; }
+    .ic-actions { display: flex; gap: 24px; margin-top: 6px; }
+    .ic-btn { width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; }
+    .ic-accept { background: #2e7d32; }
+    .ic-reject { background: #b71c1c; }
+
+    /* Active call */
+    #active-call-overlay { display: none; position: fixed; inset: 0; background: #080818; z-index: 250; flex-direction: column; }
+    #active-call-overlay.open { display: flex; }
+    #remote-video { flex: 1; width: 100%; object-fit: cover; background: #111; }
+    #local-video { position: absolute; top: 16px; right: 16px; width: 130px; height: 96px; border-radius: 10px; object-fit: cover; background: #1a1a2e; border: 2px solid #0f3460; }
+    #call-info { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.7); }
+    #call-status-text { font-size: 1rem; opacity: 0.85; }
+    #call-timer { font-size: 1.4rem; font-weight: 700; margin-top: 4px; letter-spacing: 1px; }
+    #audio-call-placeholder { flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: #b0bec5; }
+    #audio-call-placeholder .ph-icon { font-size: 5rem; }
+    #audio-call-placeholder .ph-name { font-size: 1.1rem; font-weight: 600; }
+    #call-controls { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; align-items: center; }
+    .call-ctrl-btn { width: 54px; height: 54px; border-radius: 50%; border: none; cursor: pointer; font-size: 1.3rem; background: rgba(255,255,255,0.14); color: #fff; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+    .call-ctrl-btn:hover { background: rgba(255,255,255,0.25); }
+    .call-ctrl-btn.off { background: rgba(255,255,255,0.32); }
+    #hangUpBtn { background: #b71c1c; width: 66px; height: 66px; font-size: 1.7rem; }
+    #hangUpBtn:hover { background: #c62828; }
   </style>
 </head>
 <body>
@@ -161,6 +191,12 @@
     <div class="label">Push Notifications</div>
     <button class="btn btn-gray btn-full" id="pushBtn">Enable Push</button>
     <div id="push-status">—</div>
+    <hr class="divider" />
+    <div class="label">Calling</div>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-green" id="audioCallBtn" style="flex:1;font-size:0.78rem">📞 Audio</button>
+      <button class="btn btn-blue" id="videoCallBtn" style="flex:1;font-size:0.78rem">📹 Video</button>
+    </div>
   </div>
 
   <div id="chat-area">
@@ -224,6 +260,36 @@
   <img id="lightbox-img" src="" alt="" />
 </div>
 
+<div id="incoming-call-overlay">
+  <div id="incoming-call-box">
+    <div class="ic-avatar">👤</div>
+    <div class="ic-name" id="incoming-caller-id">—</div>
+    <div class="ic-type" id="incoming-call-type">Audio Call</div>
+    <div class="ic-actions">
+      <button class="ic-btn ic-reject" id="rejectCallBtn" title="Decline">📵</button>
+      <button class="ic-btn ic-accept" id="acceptCallBtn" title="Accept">📞</button>
+    </div>
+  </div>
+</div>
+
+<div id="active-call-overlay">
+  <video id="remote-video" autoplay playsinline></video>
+  <div id="audio-call-placeholder">
+    <div class="ph-icon">📞</div>
+    <div class="ph-name" id="audio-placeholder-label">Audio Call</div>
+  </div>
+  <video id="local-video" autoplay playsinline muted></video>
+  <div id="call-info">
+    <div id="call-status-text">Calling...</div>
+    <div id="call-timer">0:00</div>
+  </div>
+  <div id="call-controls">
+    <button class="call-ctrl-btn" id="muteBtn" title="Mute">🎤</button>
+    <button class="call-ctrl-btn" id="cameraBtn" title="Camera">📷</button>
+    <button class="call-ctrl-btn" id="hangUpBtn" title="Hang up">📵</button>
+  </div>
+</div>
+
 <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
 <script>
   const API = 'http://localhost:3000/api/v1';
@@ -236,6 +302,19 @@
   let typingTimer = null;
   let replyToId = null;
   let isTyping = false;
+
+  // Call state
+  let peerConnection = null;
+  let localStream = null;
+  let callConvId = null;
+  let callType = null;
+  let callRole = null;
+  let iceCandidateQueue = [];
+  let remoteDescSet = false;
+  let callTimerInterval = null;
+  let isMuted = false;
+  let isCameraOff = false;
+  let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
 
   const $ = id => document.getElementById(id);
   const fmtSize = b => b < 1024*1024 ? (b/1024).toFixed(1)+' KB' : (b/1024/1024).toFixed(1)+' MB';
@@ -499,6 +578,189 @@
     return wrap;
   }
 
+  // ── Calling ────────────────────────────────────────────────────────────────
+
+  async function fetchIceServers() {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/calls/turn-credentials`, {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      const data = await res.json();
+      if (data.success && data.data?.ice_servers) iceServers = data.data.ice_servers;
+    } catch (_) {}
+  }
+
+  function startCallTimer() {
+    const start = Date.now();
+    callTimerInterval = setInterval(() => {
+      const s = Math.floor((Date.now() - start) / 1000);
+      $('call-timer').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    }, 1000);
+  }
+
+  function stopCallTimer() {
+    clearInterval(callTimerInterval);
+    callTimerInterval = null;
+    $('call-timer').textContent = '0:00';
+  }
+
+  function showActiveCallOverlay(status) {
+    $('call-status-text').textContent = status;
+    $('active-call-overlay').classList.add('open');
+    const isVideo = callType === 'video';
+    $('remote-video').style.display = isVideo ? 'block' : 'none';
+    $('local-video').style.display = isVideo ? 'block' : 'none';
+    $('audio-call-placeholder').style.display = isVideo ? 'none' : 'flex';
+    $('cameraBtn').style.display = isVideo ? 'flex' : 'none';
+    $('audio-placeholder-label').textContent = isVideo ? 'Video Call' : 'Audio Call';
+  }
+
+  function hideActiveCallOverlay() {
+    $('active-call-overlay').classList.remove('open');
+  }
+
+  function cleanupCall() {
+    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+    if (peerConnection) { peerConnection.close(); peerConnection = null; }
+    $('remote-video').srcObject = null;
+    $('local-video').srcObject = null;
+    iceCandidateQueue = [];
+    remoteDescSet = false;
+    callConvId = null; callType = null; callRole = null;
+    isMuted = false; isCameraOff = false;
+    $('muteBtn').textContent = '🎤'; $('muteBtn').classList.remove('off');
+    $('cameraBtn').textContent = '📷'; $('cameraBtn').classList.remove('off');
+    stopCallTimer();
+    hideActiveCallOverlay();
+    $('incoming-call-overlay').classList.remove('open');
+  }
+
+  async function setupPeerConnection() {
+    peerConnection = new RTCPeerConnection({ iceServers });
+
+    peerConnection.onicecandidate = (e) => {
+      if (e.candidate && socket)
+        socket.emit('call:ice-candidate', { conversation_id: callConvId, candidate: e.candidate.toJSON() });
+    };
+
+    peerConnection.ontrack = (e) => {
+      if ($('remote-video').srcObject !== e.streams[0])
+        $('remote-video').srcObject = e.streams[0];
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+      if (peerConnection && peerConnection.connectionState === 'connected') {
+        $('call-status-text').textContent = 'Connected';
+        startCallTimer();
+      }
+    };
+
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callType === 'video' });
+      $('local-video').srcObject = localStream;
+      localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+      return true;
+    } catch (e) {
+      sysMsg('Media error: ' + e.message);
+      cleanupCall();
+      return false;
+    }
+  }
+
+  async function drainIceCandidateQueue() {
+    while (iceCandidateQueue.length) {
+      try { await peerConnection.addIceCandidate(new RTCIceCandidate(iceCandidateQueue.shift())); } catch (_) {}
+    }
+  }
+
+  async function startCall(type) {
+    const convId = $('conversationId').value.trim();
+    if (!convId) return alert('Enter a conversation ID first');
+    if (!socket || !socket.connected) return alert('Join the room first');
+    callConvId = convId; callType = type; callRole = 'caller';
+    await fetchIceServers();
+    showActiveCallOverlay('Calling...');
+    socket.emit('call:initiate', { conversation_id: convId, call_type: type });
+  }
+
+  async function handleCallAnswered() {
+    $('call-status-text').textContent = 'Connecting...';
+    const ok = await setupPeerConnection();
+    if (!ok) return;
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit('call:sdp', { conversation_id: callConvId, sdp: { type: offer.type, sdp: offer.sdp } });
+  }
+
+  async function handleAcceptCall() {
+    $('incoming-call-overlay').classList.remove('open');
+    socket.emit('call:answer', { conversation_id: callConvId });
+    callRole = 'callee';
+    showActiveCallOverlay('Connecting...');
+    await setupPeerConnection();
+  }
+
+  async function handleSdp(data) {
+    if (!peerConnection) return;
+    const desc = new RTCSessionDescription(data.sdp);
+    if (data.sdp.type === 'offer') {
+      await peerConnection.setRemoteDescription(desc);
+      remoteDescSet = true;
+      await drainIceCandidateQueue();
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      socket.emit('call:sdp', { conversation_id: callConvId, sdp: { type: answer.type, sdp: answer.sdp } });
+    } else {
+      await peerConnection.setRemoteDescription(desc);
+      remoteDescSet = true;
+      await drainIceCandidateQueue();
+    }
+  }
+
+  async function handleIceCandidate(data) {
+    if (!peerConnection || !data.candidate) return;
+    if (remoteDescSet) {
+      try { await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (_) {}
+    } else {
+      iceCandidateQueue.push(data.candidate);
+    }
+  }
+
+  $('audioCallBtn').addEventListener('click', () => startCall('audio'));
+  $('videoCallBtn').addEventListener('click', () => startCall('video'));
+
+  $('hangUpBtn').addEventListener('click', () => {
+    if (socket && callConvId) socket.emit('call:hang-up', { conversation_id: callConvId });
+    sysMsg('Call ended');
+    cleanupCall();
+  });
+
+  $('rejectCallBtn').addEventListener('click', () => {
+    if (socket && callConvId) socket.emit('call:reject', { conversation_id: callConvId });
+    $('incoming-call-overlay').classList.remove('open');
+    callConvId = null; callType = null;
+    sysMsg('Call declined');
+  });
+
+  $('acceptCallBtn').addEventListener('click', handleAcceptCall);
+
+  $('muteBtn').addEventListener('click', () => {
+    if (!localStream) return;
+    isMuted = !isMuted;
+    localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+    $('muteBtn').textContent = isMuted ? '🔇' : '🎤';
+    $('muteBtn').classList.toggle('off', isMuted);
+  });
+
+  $('cameraBtn').addEventListener('click', () => {
+    if (!localStream) return;
+    isCameraOff = !isCameraOff;
+    localStream.getVideoTracks().forEach(t => t.enabled = !isCameraOff);
+    $('cameraBtn').textContent = isCameraOff ? '🚫' : '📷';
+    $('cameraBtn').classList.toggle('off', isCameraOff);
+  });
+
   // ── Auth ───────────────────────────────────────────────────────────────────
 
   $('loginBtn').addEventListener('click', async () => {
@@ -575,6 +837,23 @@
     socket.on('user:status', d => sysMsg(`${(d.user_id||'').slice(0,8)}… ${d.is_online ? 'online' : 'offline'}`));
     socket.on('message:reaction', d => updateReactionsUI(d.message_id, d.reactions));
     socket.on('error', err => sysMsg(`Error: ${JSON.stringify(err)}`));
+
+    socket.on('call:incoming', d => {
+      callConvId = d.conversation_id; callType = d.call_type;
+      $('incoming-caller-id').textContent = d.caller_id.slice(0, 8) + '…';
+      $('incoming-call-type').textContent = d.call_type === 'video' ? '📹 Video Call' : '📞 Audio Call';
+      $('incoming-call-overlay').classList.add('open');
+      sysMsg(`📞 Incoming ${d.call_type} call from ${d.caller_id.slice(0, 8)}…`);
+    });
+    socket.on('call:answered', () => handleCallAnswered());
+    socket.on('call:rejected', () => { sysMsg('Call was declined'); cleanupCall(); });
+    socket.on('call:ended', d => {
+      const dur = d.duration != null ? ` • ${Math.floor(d.duration / 60)}:${String(d.duration % 60).padStart(2,'0')}` : '';
+      sysMsg(`Call ended${dur}`);
+      cleanupCall();
+    });
+    socket.on('call:sdp', d => handleSdp(d));
+    socket.on('call:ice-candidate', d => handleIceCandidate(d));
   });
 
   $('leaveBtn').addEventListener('click', () => {
