@@ -17,13 +17,27 @@ export class S3StorageProvider implements IStorageProvider {
       region: this.config.get<string>('STORAGE_REGION', 'us-east-1'),
       endpoint: this.config.get<string>('STORAGE_ENDPOINT'),
       forcePathStyle: true,
-      requestChecksumCalculation: 'WHEN_REQUIRED',
-      responseChecksumValidation: 'WHEN_REQUIRED',
       credentials: {
         accessKeyId: this.config.get<string>('STORAGE_ACCESS_KEY')!,
         secretAccessKey: this.config.get<string>('STORAGE_SECRET_KEY')!,
       },
     });
+
+    // MinIO rejects AWS SDK v3 flexible checksum headers (CRC64NVME etc).
+    // Strip them in the build step so they are never included in the signature.
+    this.client.middlewareStack.add(
+      (next) => async (args: any) => {
+        const headers = (args.request as { headers: Record<string, string> }).headers;
+        delete headers['x-amz-checksum-crc32'];
+        delete headers['x-amz-checksum-crc32c'];
+        delete headers['x-amz-checksum-crc64nvme'];
+        delete headers['x-amz-checksum-sha1'];
+        delete headers['x-amz-checksum-sha256'];
+        delete headers['x-amz-sdk-checksum-algorithm'];
+        return next(args);
+      },
+      { step: 'build', name: 'stripChecksumHeaders', priority: 'low' },
+    );
   }
 
   async upload(buffer: Buffer, key: string, mimeType: string): Promise<string> {
